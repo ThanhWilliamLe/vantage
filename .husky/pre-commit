@@ -1,0 +1,5 @@
+# If running from parent repo (devlead-station), cd into the app dir
+if [ -f 6A-app/package.json ]; then
+  cd 6A-app
+fi
+npx lint-staged
