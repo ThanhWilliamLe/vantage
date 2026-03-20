@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync } from 'node:fs';
-import { execSync, spawn } from 'node:child_process';
+import { execFileSync, fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -15,21 +15,22 @@ if (major < 20) {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-// 2. Build frontend if dist/ doesn't exist
+const backendDist = resolve(root, 'packages/backend/dist/server.js');
 const frontendDist = resolve(root, 'packages/frontend/dist');
-if (!existsSync(frontendDist)) {
-  console.log('Frontend not built yet. Building...');
-  execSync('pnpm --filter @twle/vantage-frontend build', {
+
+// 2. Build if not already compiled
+if (!existsSync(backendDist) || !existsSync(frontendDist)) {
+  console.log('Building Vantage...');
+  execFileSync('pnpm', ['-r', 'build'], {
     cwd: root,
     stdio: 'inherit',
   });
 }
 
-// 3. Start the backend server (uses tsx to run TypeScript directly)
-const server = spawn('pnpm', ['--filter', '@twle/vantage-backend', 'dev'], {
+// 3. Start the compiled backend server
+const server = fork(backendDist, {
   cwd: root,
   stdio: 'inherit',
-  shell: true,
 });
 
 server.on('close', (code) => process.exit(code ?? 0));

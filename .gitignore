@@ -1,31 +1,10 @@
-# Dependencies
 node_modules/
-
-# Build output
-**/dist/
-
-# Coverage
-**/coverage/
-
-# Test artifacts
-**/test-results/
-
-# Environment / secrets
+dist/
 .env
-.env.*
-
-# Data (local runtime)
-vantage.db
-vantage.db-*
-keyfile
-
-# OS
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.db.bak
+coverage/
+.turbo/

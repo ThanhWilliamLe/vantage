@@ -29,7 +29,7 @@
   "scripts": {
     "dev": "pnpm --filter @twle/vantage-backend dev",
     "dev:frontend": "pnpm --filter @twle/vantage-frontend dev",
-    "start": "pnpm --filter @twle/vantage-frontend build && pnpm --filter @twle/vantage-backend dev",
+    "start": "node packages/backend/dist/server.js",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:unit": "pnpm -r test:unit",
