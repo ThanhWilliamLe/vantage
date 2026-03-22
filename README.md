@@ -4,16 +4,16 @@
 
 ![Vantage — Review queue showing pending code reviews with AI risk scores and age indicators](assets/screenshot-dashboard.png)
 
-You're the sole reviewer across multiple projects and platforms. Things fall through the cracks. Your evaluations live in a spreadsheet, disconnected from the code activity that drives 80% of their content.
+You're the person responsible for code reviews — whether that's one large project or a dozen across multiple platforms. Things fall through the cracks. Your evaluations live in a spreadsheet, disconnected from the code activity that drives most of their content.
 
 **Vantage fixes this.** [Get started in 4 commands.](#quick-start)
 
 ## What it does
 
-- **Unified review queue** — Every commit, PR, and MR across all your repos in one place. Nothing goes unreviewed.
-- **Smart triage** — AI-generated summaries, risk levels, and categories so you know what matters before opening a diff.
+- **Unified review queue** — Every commit, PR, and MR in one place — whether you manage one repo or twenty. Nothing goes unreviewed.
+- **Smart triage** — AI-generated summaries, risk levels, and categories. Even when you know the codebase, it catches the commit you'd have skimmed past at 5pm on Friday.
 - **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Auto-suggests matches using heuristics. Your team member who commits as three different emails? One person, one view.
-- **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. You add the 20% that requires human observation.
+- **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. You already know what happened — Vantage saves you the time of writing it up.
 - **Workload visibility** — Charts showing who's doing what, across which projects, over time.
 - **Local-first** — Reads from your local `.git` directories. Your code and evaluations never leave your machine.
 
@@ -21,7 +21,7 @@ You're the sole reviewer across multiple projects and platforms. Things fall thr
 
 ## Quick start
 
-**Requirements:** [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/installation), git
+**Requirements:** [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/installation) (`npm install -g pnpm` if you don't have it), git
 
 ```bash
 git clone https://github.com/ThanhWilliamLe/vantage.git
@@ -53,7 +53,8 @@ Commit volume by member and project. Spot imbalances before they become problems
 - Commit-level and PR/MR-level review units — review the way you actually review
 - Age tracking — stale items surface, nothing hides
 - Multi-branch awareness — see work across all branches, not just main
-- Review workflow: pending → reviewed / flagged → communicated → resolved
+- Review workflow: pending → reviewed / flagged → communicated → resolved — completion guarantee your notifications tab can't give you
+- Incremental scanning — only fetches new commits, fast on daily use
 - Git worktree support — works with repos that use `git worktree`
 
 ### Focus on what matters
@@ -95,7 +96,7 @@ No data leaves your machine unless you configure an external API connection.
 
 ## AI setup
 
-Vantage works without AI — you get the review queue, workload charts, and evaluation log regardless. AI adds automatic triage and evaluation pre-fill.
+Vantage works without AI — you get the review queue, workload charts, and evaluation log regardless. AI is optional and adds automatic triage and evaluation pre-fill.
 
 **Supported providers:**
 - **Claude** (Anthropic) — API or CLI
