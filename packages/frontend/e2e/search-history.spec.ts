@@ -19,7 +19,7 @@ test.describe.serial('Search & History Journey', () => {
   let memberId: string;
 
   test.beforeAll(async () => {
-    const api = await pwRequest.newContext({ baseURL: 'http://localhost:3847' });
+    const api = await pwRequest.newContext({ baseURL: 'http://localhost:24020' });
 
     // Seed project
     const project = await createProject(api, projectName, 'Search-history e2e');

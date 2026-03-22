@@ -21,7 +21,7 @@ test.describe.serial('Morning review journey', () => {
   let api: APIRequestContext;
 
   test.beforeAll(async () => {
-    api = await pwRequest.newContext({ baseURL: 'http://localhost:3847' });
+    api = await pwRequest.newContext({ baseURL: 'http://localhost:24020' });
 
     const project = await createProject(api, `Review Project ${suffix}`);
     const member = await createMember(api, `Alice Review ${suffix}`);

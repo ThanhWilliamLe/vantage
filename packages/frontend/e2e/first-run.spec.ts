@@ -92,8 +92,8 @@ test.describe.serial('First-run journey', () => {
 
   test('add identity mapping to member via API', async () => {
     // Find the member by name, then add identity via API
-    const api = await pwRequest.newContext({ baseURL: 'http://localhost:3847' });
-    const membersRes = await api.get('http://localhost:3847/api/members');
+    const api = await pwRequest.newContext({ baseURL: 'http://localhost:24020' });
+    const membersRes = await api.get('http://localhost:24020/api/members');
     const members = await membersRes.json() as Array<{ id: string; name: string }>;
     const member = members.find((m) => m.name === memberName);
     if (!member) throw new Error(`Member ${memberName} not found`);
@@ -102,7 +102,7 @@ test.describe.serial('First-run journey', () => {
 
   test('trigger scan and verify items in review queue', async ({ page }) => {
     // Trigger scan via API
-    const api = await pwRequest.newContext({ baseURL: 'http://localhost:3847' });
+    const api = await pwRequest.newContext({ baseURL: 'http://localhost:24020' });
     await triggerScan(api);
 
     // Wait a moment for scan to process

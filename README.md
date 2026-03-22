@@ -30,7 +30,7 @@ pnpm install
 pnpm build && pnpm start
 ```
 
-Open [http://localhost:3847](http://localhost:3847). Add your repo paths in Settings → Projects, then scan.
+Open [http://localhost:24020](http://localhost:24020). Add your repo paths in Settings → Projects, then scan.
 
 ![Vantage demo — adding a repo, scanning commits, reviewing with AI triage](assets/demo.gif)
 
@@ -85,7 +85,7 @@ Vantage is a local web server (Fastify) serving a React frontend. It reads commi
 ```
 Your local .git repos
     ↓
-Vantage (localhost:3847)
+Vantage (localhost:24020)
     ├── SQLite (your data)
     ├── AI provider (optional — for triage + evaluation pre-fill)
     ├── Git platform APIs (optional — for PR/MR metadata)

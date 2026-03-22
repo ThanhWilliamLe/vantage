@@ -7,7 +7,7 @@ import { mkdirSync, existsSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Fastify from 'fastify';
 
-const PORT = parseInt(process.env.VANTAGE_PORT || '3847', 10);
+const PORT = parseInt(process.env.VANTAGE_PORT || '24020', 10);
 const HOST = '127.0.0.1';
 
 async function main() {

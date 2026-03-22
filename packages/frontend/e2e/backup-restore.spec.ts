@@ -46,7 +46,7 @@ test.describe.serial('Backup & Restore Journey', () => {
 
   test('restore with merge mode succeeds', async ({ page, request }) => {
     // First export via API to get backup data
-    const exportRes = await request.post('http://localhost:3847/api/backup/export');
+    const exportRes = await request.post('http://localhost:24020/api/backup/export');
     expect(exportRes.ok()).toBeTruthy();
     const backupData = await exportRes.json();
 

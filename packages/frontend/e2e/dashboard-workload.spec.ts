@@ -23,7 +23,7 @@ test.describe.serial('Dashboard and workload journey', () => {
   let memberId: string;
 
   test.beforeAll(async () => {
-    const api = await pwRequest.newContext({ baseURL: 'http://localhost:3847' });
+    const api = await pwRequest.newContext({ baseURL: 'http://localhost:24020' });
 
     const project = await createProject(api, projectName);
     const member = await createMember(api, memberName);

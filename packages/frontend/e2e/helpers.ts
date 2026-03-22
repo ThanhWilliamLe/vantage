@@ -7,7 +7,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const API = 'http://localhost:3847';
+const API = 'http://localhost:24020';
 
 /** Unique suffix per test run to avoid data collisions. */
 export function uid(): string {
