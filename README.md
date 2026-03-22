@@ -1,6 +1,6 @@
 # Vantage
 
-**A local-first review dashboard for dev leads who manage code across GitHub and GitLab.**
+**A local-first review dashboard for dev leads who manage code across GitHub, GitLab, Bitbucket, and Gitea.**
 
 ![Vantage — Review queue showing pending code reviews with AI risk scores and age indicators](assets/screenshot-dashboard.png)
 
@@ -12,7 +12,7 @@ You're the sole reviewer across multiple projects and platforms. Things fall thr
 
 - **Unified review queue** — Every commit, PR, and MR across all your repos in one place. Nothing goes unreviewed.
 - **Smart triage** — AI-generated summaries, risk levels, and categories so you know what matters before opening a diff.
-- **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Your team member who commits as three different emails? One person, one view.
+- **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Auto-suggests matches using heuristics. Your team member who commits as three different emails? One person, one view.
 - **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. You add the 20% that requires human observation.
 - **Workload visibility** — Charts showing who's doing what, across which projects, over time.
 - **Local-first** — Reads from your local `.git` directories. Your code and evaluations never leave your machine.
@@ -49,15 +49,16 @@ Commit volume by member and project. Spot imbalances before they become problems
 ## Features
 
 ### Nothing slips through
-- Cross-platform review queue — GitHub, GitLab, and also [Bitbucket and Gitea](https://github.com/ThanhWilliamLe/vantage)
+- Cross-platform review queue — GitHub, GitLab, Bitbucket, and Gitea
 - Commit-level and PR/MR-level review units — review the way you actually review
 - Age tracking — stale items surface, nothing hides
 - Multi-branch awareness — see work across all branches, not just main
 - Review workflow: pending → reviewed / flagged → communicated → resolved
+- Git worktree support — works with repos that use `git worktree`
 
 ### Focus on what matters
-- AI summaries, categories, and risk levels auto-generated on scan (Tier 1)
-- On-demand deep analysis with repo context — reads your source files (Tier 2)
+- AI summaries, categories, and risk levels auto-generated on scan
+- On-demand deep analysis with repo context — reads your source files for richer insights
 - Task cross-referencing — regex-detected Jira/ClickUp IDs become clickable links
 - Optional task enrichment — connect Jira/ClickUp API to see task title, status, and assignee inline (requires API credentials)
 - Full-text search across all code changes and evaluations
