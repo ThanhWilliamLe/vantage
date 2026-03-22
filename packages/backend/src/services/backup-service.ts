@@ -550,6 +550,41 @@ export const BackupService = {
 
     return { mode, inserted, skipped, errors };
   },
+
+  /**
+   * Delete all user data. Preserves app_config (password, schema version).
+   */
+  async deleteAll(db: DrizzleDB): Promise<void> {
+    const sqliteDb = db.$client;
+
+    // Create safety backup
+    const dbPath = sqliteDb.name;
+    if (dbPath && dbPath !== ':memory:') {
+      try {
+        copyFileSync(dbPath, `${dbPath}.pre-wipe.bak`);
+      } catch {
+        // Non-critical
+      }
+    }
+
+    const run = sqliteDb.transaction(() => {
+      // Delete leaf tables first (reference TABLE_ORDER tables), then reverse dependency order
+      const allTables = [
+        'scan_state',
+        'sync_state',
+        'task_tracker_credential',
+        ...[...TABLE_ORDER].reverse(),
+      ];
+      for (const table of allTables) {
+        sqliteDb.prepare(`DELETE FROM ${table}`).run();
+      }
+      // Clear FTS tables
+      sqliteDb.prepare('DELETE FROM code_change_fts').run();
+      sqliteDb.prepare('DELETE FROM evaluation_entry_fts').run();
+    });
+
+    run();
+  },
 };
 
 // ─── FTS Rebuild ────────────────────────────────

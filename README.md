@@ -66,7 +66,7 @@ Commit volume by member and project. Spot imbalances before they become problems
 
 ### Evaluations write themselves
 - Daily check-ups — AI pre-fills from that day's review activity
-- Quarterly reviews — AI synthesizes trends, patterns, and insights from months of data
+- Quarterly reviews — AI summarizes months of review activity into a draft evaluation
 - Workload scoring with historical tracking
 - CSV export and historical data import from existing spreadsheets
 

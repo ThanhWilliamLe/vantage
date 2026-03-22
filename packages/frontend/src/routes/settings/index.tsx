@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useProjects, useMembers } from '../../hooks/api/core.js';
-import { apiClient } from '../../lib/api-client.js';
+import { apiClient, errorMessage } from '../../lib/api-client.js';
 import {
   useCreateProject,
   useUpdateProject,
@@ -25,6 +25,7 @@ import {
   useDeleteAIProvider,
   useSetPassword,
   useRemovePassword,
+  useDeleteAllData,
 } from '../../hooks/api/settings.js';
 import { toast } from 'sonner';
 
@@ -107,7 +108,6 @@ function ProjectsSection() {
           setName('');
           setDesc('');
         },
-        onError: () => toast.error('Failed to create project'),
       },
     );
   }
@@ -240,7 +240,6 @@ function ProjectEditForm({
       { id: project.id, name: editName.trim(), description: editDesc.trim() || undefined },
       {
         onSuccess: () => toast.success('Project updated'),
-        onError: () => toast.error('Failed to update project'),
       },
     );
   }
@@ -292,7 +291,6 @@ function ProjectRepositories({ projectId }: { projectId: string }) {
           setLocalPath('');
           repos.refetch();
         },
-        onError: () => toast.error('Failed to add repository'),
       },
     );
   }
@@ -328,7 +326,6 @@ function ProjectRepositories({ projectId }: { projectId: string }) {
                       toast.success('Repository removed');
                       repos.refetch();
                     },
-                    onError: () => toast.error('Failed to remove repository'),
                   })
                 }
                 className="text-xs text-danger hover:text-danger/80 shrink-0 ml-2"
@@ -391,7 +388,6 @@ function ProjectTaskPatterns({ projectId }: { projectId: string }) {
           setUrlTemplate('');
           patterns.refetch();
         },
-        onError: () => toast.error('Failed to add task pattern. Check your regex syntax.'),
       },
     );
   }
@@ -429,7 +425,6 @@ function ProjectTaskPatterns({ projectId }: { projectId: string }) {
                       toast.success('Pattern removed');
                       patterns.refetch();
                     },
-                    onError: () => toast.error('Failed to remove pattern'),
                   })
                 }
                 className="text-xs text-danger hover:text-danger/80 shrink-0 ml-2"
@@ -485,7 +480,6 @@ function MembersSection() {
           toast.success('Member created');
           setName('');
         },
-        onError: () => toast.error('Failed to create member'),
       },
     );
   }
@@ -610,7 +604,6 @@ function MemberIdentityPanel({ memberId }: { memberId: string }) {
           setValue('');
           identities.refetch();
         },
-        onError: () => toast.error('Failed to add identity'),
       },
     );
   }
@@ -621,7 +614,6 @@ function MemberIdentityPanel({ memberId }: { memberId: string }) {
         toast.success('Identity removed');
         identities.refetch();
       },
-      onError: () => toast.error('Failed to remove identity'),
     });
   }
 
@@ -728,7 +720,6 @@ function CredentialsSection() {
           setToken('');
           setInstanceUrl('');
         },
-        onError: () => toast.error('Failed to create credential'),
       },
     );
   }
@@ -739,9 +730,8 @@ function CredentialsSection() {
         setTestResult((prev) => ({ ...prev, [id]: data.message }));
         toast.success('Test passed');
       },
-      onError: () => {
-        setTestResult((prev) => ({ ...prev, [id]: 'Test failed' }));
-        toast.error('Test failed');
+      onError: (err: unknown) => {
+        setTestResult((prev) => ({ ...prev, [id]: `Test failed: ${errorMessage(err)}` }));
       },
     });
   }
@@ -880,7 +870,6 @@ function AIProviderSection() {
           setModel('');
           setCliCommand('');
         },
-        onError: () => toast.error('Failed to create provider'),
       },
     );
   }
@@ -1035,14 +1024,12 @@ function PasswordSection() {
         setPassword('');
         setConfirmPassword('');
       },
-      onError: () => toast.error('Failed to set password'),
     });
   }
 
   function handleRemovePassword() {
     removePasswordMut.mutate(undefined, {
       onSuccess: () => toast.success('Password removed'),
-      onError: () => toast.error('Failed to remove password'),
     });
   }
 
@@ -1140,8 +1127,8 @@ function DataManagementSection() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Backup downloaded');
-    } catch {
-      toast.error('Failed to create backup');
+    } catch (err) {
+      toast.error(`Failed to create backup: ${errorMessage(err)}`, { duration: 8000 });
     } finally {
       setIsExporting(false);
     }
@@ -1187,8 +1174,8 @@ function DataManagementSection() {
       } else {
         toast.error(`Restore completed with ${result.errors.length} errors`);
       }
-    } catch {
-      toast.error('Restore failed');
+    } catch (err) {
+      toast.error(`Restore failed: ${errorMessage(err)}`, { duration: 8000 });
     } finally {
       setIsRestoring(false);
     }
@@ -1388,6 +1375,9 @@ function DataManagementSection() {
 
       {/* Import Historical Evaluations */}
       <CSVImportPanel />
+
+      {/* Delete All Data */}
+      <DeleteAllDataPanel />
     </div>
   );
 }
@@ -1514,8 +1504,8 @@ function CSVImportPanel() {
       }
       setProjectResolutions(pRes);
       setStep('validated');
-    } catch {
-      setCsvError('Validation failed. Check your column mappings.');
+    } catch (err) {
+      setCsvError(`Validation failed: ${errorMessage(err)}`);
     }
   }
 
@@ -1534,8 +1524,8 @@ function CSVImportPanel() {
       if (result.errors.length === 0) {
         toast.success(`Imported ${result.imported} evaluations`);
       }
-    } catch {
-      setCsvError('Import failed.');
+    } catch (err) {
+      setCsvError(`Import failed: ${errorMessage(err)}`);
       setStep('validated');
     }
   }
@@ -1757,6 +1747,44 @@ function CSVImportPanel() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function DeleteAllDataPanel() {
+  const deleteAll = useDeleteAllData();
+  const [confirmText, setConfirmText] = useState('');
+
+  return (
+    <div className="bg-surface-raised border border-danger/30 rounded-sm p-4 mt-4">
+      <h3 className="text-sm font-medium text-danger mb-1">Delete All Data</h3>
+      <p className="text-xs text-text-secondary mb-3">
+        Permanently delete all projects, members, reviews, evaluations, credentials, and AI
+        providers. App settings (password, preferences) are preserved. A backup file is created
+        automatically before deletion.
+      </p>
+      <div className="flex items-center gap-3">
+        <input
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder='Type "DELETE ALL" to confirm'
+          className="px-3 py-1.5 bg-surface border border-danger/30 rounded-lg text-sm text-text-primary outline-none focus:border-danger w-56"
+        />
+        <button
+          onClick={() => {
+            deleteAll.mutate(undefined, {
+              onSuccess: () => {
+                toast.success('All data deleted');
+                setConfirmText('');
+              },
+            });
+          }}
+          disabled={confirmText !== 'DELETE ALL' || deleteAll.isPending}
+          className="px-4 py-2 bg-danger text-white text-sm rounded-full hover:bg-danger/80 disabled:opacity-50 transition-colors"
+        >
+          {deleteAll.isPending ? 'Deleting...' : 'Delete All Data'}
+        </button>
+      </div>
     </div>
   );
 }

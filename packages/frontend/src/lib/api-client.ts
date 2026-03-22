@@ -28,8 +28,11 @@ class APIClient {
     sessionStorage.removeItem('com.twle.vantage.token');
   }
 
-  private headers(): Record<string, string> {
-    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  private headers(hasBody: boolean): Record<string, string> {
+    const h: Record<string, string> = {};
+    if (hasBody) {
+      h['Content-Type'] = 'application/json';
+    }
     const token = this.getToken();
     if (token) {
       h['Authorization'] = `Bearer ${token}`;
@@ -40,7 +43,7 @@ class APIClient {
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const opts: RequestInit = {
       method,
-      headers: this.headers(),
+      headers: this.headers(body !== undefined),
     };
     if (body !== undefined) {
       opts.body = JSON.stringify(body);
@@ -111,3 +114,15 @@ class APIClient {
 }
 
 export const apiClient = new APIClient();
+
+/** Extract a selectable error string from any error (API or otherwise). */
+export function errorMessage(err: unknown): string {
+  if (err instanceof APIError) {
+    const body = err.body as Record<string, unknown> | undefined;
+    const inner = body?.error as Record<string, unknown> | undefined;
+    const msg = inner?.message ?? body?.message ?? err.message;
+    return `[${err.status}] ${msg}`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}

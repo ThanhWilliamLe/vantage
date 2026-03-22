@@ -234,7 +234,6 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
           setValue('');
           identities.refetch();
         },
-        onError: () => toast.error('Failed to add identity'),
       },
     );
   }
@@ -245,7 +244,6 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
         toast.success('Identity removed');
         identities.refetch();
       },
-      onError: () => toast.error('Failed to remove identity'),
     });
   }
 
@@ -348,7 +346,6 @@ function AssignToProjectForm({
           setRole('');
           onAssigned();
         },
-        onError: () => toast.error('Failed to create assignment'),
       },
     );
   }
@@ -423,7 +420,6 @@ function AssignmentRow({
           toast.success('Assignment ended');
           onEnded();
         },
-        onError: () => toast.error('Failed to end assignment'),
       },
     );
   }

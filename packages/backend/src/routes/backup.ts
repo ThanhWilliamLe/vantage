@@ -56,4 +56,19 @@ export async function backupRoutes(app: FastifyInstance) {
 
     return await BackupService.restore(backup, mode, app.db);
   });
+
+  // POST /api/backup/delete-all — delete all user data (keeps app_config)
+  app.post('/api/backup/delete-all', async (request, reply) => {
+    const body = request.body as { confirm?: string } | undefined;
+    if (!body || body.confirm !== 'DELETE ALL') {
+      return reply.status(400).send({
+        error: {
+          code: 'CONFIRMATION_REQUIRED',
+          message: 'Body must include { "confirm": "DELETE ALL" }',
+        },
+      });
+    }
+    await BackupService.deleteAll(app.db);
+    return reply.status(204).send();
+  });
 }

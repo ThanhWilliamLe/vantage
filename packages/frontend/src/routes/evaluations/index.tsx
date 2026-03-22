@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { errorMessage } from '../../lib/api-client.js';
 import { useMembers, useProjects, useSearch, useDayActivity } from '../../hooks/api/core.js';
 import {
   useEvaluations,
@@ -130,7 +131,6 @@ export function Evaluations() {
           setEvalNotes('');
           setSelectedProjectIds([]);
         },
-        onError: () => toast.error('Failed to create evaluation'),
       },
     );
   }
@@ -165,7 +165,6 @@ export function Evaluations() {
             setWorkloadScore('');
             setEvalNotes('');
           },
-          onError: () => toast.error('Failed to create evaluation'),
         },
       );
     } else {
@@ -206,9 +205,6 @@ export function Evaluations() {
             },
             onError: () => {
               errorCount++;
-              if (successCount + errorCount === total) {
-                toast.error(`Failed to create ${errorCount} evaluation(s)`);
-              }
             },
           },
         );
@@ -239,8 +235,8 @@ export function Evaluations() {
           }
         }
       })
-      .catch(() => {
-        toast.error('AI pre-fill failed. Check that an AI provider is configured in Settings.');
+      .catch((err: unknown) => {
+        toast.error(`AI pre-fill failed: ${errorMessage(err)}`, { duration: 8000 });
       });
   }
 
@@ -267,8 +263,8 @@ export function Evaluations() {
           }
         }
       })
-      .catch(() => {
-        toast.error('AI synthesis failed. Check that an AI provider is configured in Settings.');
+      .catch((err: unknown) => {
+        toast.error(`AI synthesis failed: ${errorMessage(err)}`, { duration: 8000 });
       });
   }
 
@@ -285,7 +281,6 @@ export function Evaluations() {
           toast.success('Evaluation updated');
           setEditingId(null);
         },
-        onError: () => toast.error('Failed to update'),
       },
     );
   }

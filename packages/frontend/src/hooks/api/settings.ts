@@ -314,3 +314,15 @@ export function useDeleteTaskPattern() {
     },
   });
 }
+
+// ── Data management hooks ──────────────────────────────────
+
+export function useDeleteAllData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.post('/api/backup/delete-all', { confirm: 'DELETE ALL' }),
+    onSuccess: () => {
+      qc.invalidateQueries();
+    },
+  });
+}

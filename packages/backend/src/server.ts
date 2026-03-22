@@ -12,7 +12,15 @@ const HOST = '127.0.0.1';
 
 async function main() {
   // Use a temporary logger for bootstrap phase
-  const bootstrapLogger = Fastify({ logger: { level: 'info', transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss Z', ignore: 'pid,hostname' } } } });
+  const bootstrapLogger = Fastify({
+    logger: {
+      level: 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: { translateTime: 'HH:MM:ss Z', ignore: 'pid,hostname' },
+      },
+    },
+  });
 
   try {
     // 1. Create data directory
@@ -49,7 +57,9 @@ async function main() {
     const keyfilePath = join(dataDir, 'keyfile');
     const { key, generated } = ensureKeyFile(keyfilePath);
     if (generated) {
-      bootstrapLogger.log.warn('New encryption key generated. Previously encrypted tokens are now invalid.');
+      bootstrapLogger.log.warn(
+        'New encryption key generated. Previously encrypted tokens are now invalid.',
+      );
     }
 
     // 4. Run migrations
