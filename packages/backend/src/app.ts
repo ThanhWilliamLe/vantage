@@ -23,6 +23,11 @@ import { aiRoutes } from './routes/ai.js';
 import { evaluationRoutes } from './routes/evaluations.js';
 import { searchRoutes } from './routes/search.js';
 import { workloadRoutes } from './routes/workload.js';
+import { workloadChartRoutes } from './routes/workload-charts.js';
+import { backupRoutes } from './routes/backup.js';
+import { importRoutes } from './routes/import.js';
+import { identitySuggestionRoutes } from './routes/identity-suggestions.js';
+import { taskTrackerRoutes } from './routes/task-tracker.js';
 import authMiddleware from './plugins/auth-middleware.js';
 
 // Extend Fastify instance type with our decorators
@@ -133,6 +138,11 @@ export function buildApp(options?: BuildAppOptions) {
     app.register(evaluationRoutes);
     app.register(searchRoutes);
     app.register(workloadRoutes);
+    app.register(workloadChartRoutes);
+    app.register(backupRoutes);
+    app.register(importRoutes);
+    app.register(identitySuggestionRoutes);
+    app.register(taskTrackerRoutes);
     app.register(authRoutes);
   }
 

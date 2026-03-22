@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vantage — Local-first review dashboard for dev leads</title>
+  <meta name="description" content="A local-first review dashboard for dev leads who manage code across GitHub and GitLab. Cross-platform code review, AI triage, and team evaluations.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --base: #18181B;
+      --surface: #1F1F23;
+      --surface-raised: #27272B;
+      --surface-overlay: #303035;
+      --border: #2E2E33;
+      --text-primary: #ECECEF;
+      --text-secondary: #A1A1A8;
+      --text-tertiary: #929298;
+      --accent: #3D7068;
+      --accent-hover: #4A8A80;
+      --accent-text: #5FBFB2;
+      --info: #6889A8;
+      --danger: #B84A4A;
+      --success: #5B8A5E;
+      --warning: #C4922A;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--base);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Fraunces', serif;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    a { color: var(--accent-text); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .hero h1 span { color: var(--accent-text); }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+    .hero-cta:hover { background: var(--accent-hover); color: var(--text-primary); }
+    .hero-cta svg { width: 20px; height: 20px; }
+    .hero-secondary {
+      display: inline-block;
+      margin-left: 16px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 16px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .hero-secondary:hover { border-color: var(--accent-text); color: var(--text-primary); }
+    .hero-img {
+      margin-top: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+      max-width: 100%;
+    }
+
+    /* ── Problem cards ── */
+    .problems { padding: 80px 0; }
+    .problems h2 { text-align: center; font-size: 1.8rem; margin-bottom: 40px; }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .problem-card {
+      padding: 28px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .problem-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .problem-card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .problem-card p { color: var(--text-secondary); font-size: 15px; }
+
+    /* ── Pillars ── */
+    .pillars { padding: 40px 0 80px; }
+    .pillar {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      padding: 60px 0;
+    }
+    .pillar:nth-child(even) { flex-direction: row-reverse; }
+    .pillar-text { flex: 1; }
+    .pillar-text h2 { font-size: 1.6rem; margin-bottom: 12px; }
+    .pillar-text p { color: var(--text-secondary); font-size: 16px; line-height: 1.7; }
+    .pillar-img {
+      flex: 1;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+      max-width: 100%;
+    }
+
+    /* ── How it works ── */
+    .how-it-works { padding: 80px 0; text-align: center; }
+    .how-it-works h2 { font-size: 1.8rem; margin-bottom: 48px; }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+    }
+    .step-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fraunces', serif;
+      font-weight: 600;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .step h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .step p { color: var(--text-secondary); font-size: 15px; }
+
+    /* ── Features grid ── */
+    .features { padding: 80px 0; }
+    .features h2 { text-align: center; font-size: 1.8rem; margin-bottom: 48px; }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .feature-item {
+      padding: 20px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .feature-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .feature-item strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .feature-item span { color: var(--text-secondary); font-size: 13px; }
+
+    /* ── Privacy ── */
+    .privacy {
+      padding: 60px 0;
+      text-align: center;
+    }
+    .privacy-box {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 40px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .privacy-box h2 { font-size: 1.6rem; margin-bottom: 12px; }
+    .privacy-box p { color: var(--text-secondary); font-size: 16px; }
+
+    /* ── Quick start ── */
+    .quickstart { padding: 60px 0; text-align: center; }
+    .quickstart h2 { font-size: 1.8rem; margin-bottom: 24px; }
+    .code-block {
+      max-width: 560px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px 28px;
+      text-align: left;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+      position: relative;
+    }
+    .code-block .cmd { color: var(--accent-text); }
+    .copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-raised);
+      color: var(--text-tertiary);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .copy-btn:hover { color: var(--text-primary); border-color: var(--accent-text); }
+
+    /* ── Footer ── */
+    footer {
+      padding: 40px 0;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+    footer a { color: var(--accent-text); }
+    .footer-badges { margin-bottom: 12px; }
+    .footer-badges img { height: 20px; margin: 0 4px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .hero { padding: 48px 0 40px; }
+      .hero-secondary { display: block; margin: 12px auto 0; }
+      .pillar, .pillar:nth-child(even) {
+        flex-direction: column;
+        gap: 24px;
+        padding: 40px 0;
+      }
+      .hero-cta, .hero-secondary { display: block; width: fit-content; margin: 8px auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Open Source &middot; Apache 2.0</div>
+      <h1>Your code reviews,<br><span>in one place.</span></h1>
+      <p>A local-first review dashboard for dev leads who manage code across GitHub, GitLab, Bitbucket, and Gitea. AI triage. Team evaluations. Nothing falls through the cracks.</p>
+      <div>
+        <a href="https://github.com/ThanhWilliamLe/vantage" class="hero-cta">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.4 1.2a11.6 11.6 0 016.2 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .3"/></svg>
+          Get Started
+        </a>
+        <a href="#quickstart" class="hero-secondary">Quick Start</a>
+      </div>
+      <img src="assets/screenshot-dashboard.png" alt="Vantage Dashboard" class="hero-img">
+    </div>
+  </section>
+
+  <!-- Problem Cards -->
+  <section class="problems">
+    <div class="container">
+      <h2>Sound familiar?</h2>
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-icon" style="background: rgba(184,74,74,0.15); color: #E06060;">!</div>
+          <h3>Missed reviews</h3>
+          <p>You're the sole reviewer across multiple projects. Commits and PRs slip through because there's no single view of what needs your attention.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon" style="background: rgba(104,137,168,0.15); color: #88AAC8;">~</div>
+          <h3>Scattered platforms</h3>
+          <p>GitHub for some repos, self-hosted GitLab for others. You switch between dashboards, tabs, and notification feeds — and things get lost in between.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon" style="background: rgba(196,146,42,0.15); color: #D4A23A;">?</div>
+          <h3>Spreadsheet evaluations</h3>
+          <p>Daily check-ups and quarterly reviews live in a spreadsheet, disconnected from the code activity that drives 80% of their content. Writing them means manually reconstructing what happened.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pillars -->
+  <section class="pillars">
+    <div class="container">
+
+      <div class="pillar">
+        <div class="pillar-text">
+          <h2>Nothing slips through</h2>
+          <p>Every commit, PR, and MR across all your repos — GitHub, GitLab, Bitbucket, Gitea — in one unified review queue. Age tracking shows what's been waiting. Multi-branch awareness means you see work across all branches, not just main.</p>
+        </div>
+        <img src="assets/screenshot-review-queue.png" alt="Unified Review Queue" class="pillar-img">
+      </div>
+
+      <div class="pillar">
+        <div class="pillar-text">
+          <h2>Focus on what matters</h2>
+          <p>AI-generated summaries tell you what changed before you open the diff. Risk levels flag the changes that need real attention — auth logic, database migrations, security-sensitive code. On-demand deep analysis reads your repo files for context-aware insights.</p>
+        </div>
+        <img src="assets/screenshot-review-detail.png" alt="AI Triage and Review Detail" class="pillar-img">
+      </div>
+
+      <div class="pillar">
+        <div class="pillar-text">
+          <h2>Evaluations write themselves</h2>
+          <p>AI drafts daily check-ups and quarterly reviews from your accumulated review activity. You add the 20% that requires human observation — the conversations, the impressions, the context only you have. Stop reconstructing your team's work from git log.</p>
+        </div>
+        <img src="assets/screenshot-workload.png" alt="Workload Charts and Evaluations" class="pillar-img">
+      </div>
+
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how-it-works">
+    <div class="container">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Point to your repos</h3>
+          <p>Add your local git repo paths. Optionally connect GitHub, GitLab, Bitbucket, or Gitea API tokens for PR/MR metadata.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>See your queue</h3>
+          <p>Vantage scans your repos and builds a unified review queue. AI categorizes and scores risk automatically.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Review and evaluate</h3>
+          <p>Triage your queue, flag issues, write notes. When evaluation time comes, AI has already drafted it from your reviews.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <h2>Built for your workflow</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F50D;</span>
+          <div>
+            <strong>Cross-platform review queue</strong>
+            <span>GitHub, GitLab, Bitbucket, Gitea in one view</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F916;</span>
+          <div>
+            <strong>AI triage</strong>
+            <span>Auto summaries, categories, and risk levels</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F464;</span>
+          <div>
+            <strong>Identity resolution</strong>
+            <span>Map multiple git identities to real people</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F4CB;</span>
+          <div>
+            <strong>Team evaluations</strong>
+            <span>Daily check-ups and quarterly reviews, AI pre-filled</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F4CA;</span>
+          <div>
+            <strong>Workload charts</strong>
+            <span>Commit volume by member and project over time</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F517;</span>
+          <div>
+            <strong>Task linking</strong>
+            <span>Jira and ClickUp references with live metadata</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F4BB;</span>
+          <div>
+            <strong>Local-first</strong>
+            <span>Reads from local .git directories, no cloud</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F513;</span>
+          <div>
+            <strong>Open source</strong>
+            <span>Apache 2.0 — read every line, fork freely</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">&#x1F50E;</span>
+          <div>
+            <strong>Full-text search</strong>
+            <span>Search across all code changes and evaluations</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="privacy">
+    <div class="container">
+      <div class="privacy-box">
+        <h2>Your data stays yours</h2>
+        <p>Vantage runs entirely on your machine. Your code, evaluations, and review notes never leave your laptop. API tokens are encrypted at rest. No telemetry, no cloud sync, no accounts. Evaluations contain sensitive performance data — they belong on your machine, not someone else's server.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick start -->
+  <section class="quickstart" id="quickstart">
+    <div class="container">
+      <h2>Get started in 60 seconds</h2>
+      <div class="code-block">
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('git clone https://github.com/ThanhWilliamLe/vantage.git\ncd vantage\npnpm install\npnpm dev')">Copy</button>
+        <span class="cmd">git clone</span> https://github.com/ThanhWilliamLe/vantage.git<br>
+        <span class="cmd">cd</span> vantage<br>
+        <span class="cmd">pnpm install</span><br>
+        <span class="cmd">pnpm dev</span><br>
+        <br>
+        <span style="color: var(--text-tertiary)"># Open http://localhost:3847</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-badges">
+        <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0">
+        <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
+      </div>
+      <p>
+        <a href="https://github.com/ThanhWilliamLe/vantage">GitHub</a> &middot;
+        Apache 2.0 &middot;
+        Built for dev leads who review code across platforms.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>

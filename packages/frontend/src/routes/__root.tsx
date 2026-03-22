@@ -1,7 +1,9 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Sidebar } from '../components/sidebar.js';
-import { CommandPalette } from '../components/command-palette.js';
+const CommandPalette = lazy(() =>
+  import('../components/command-palette.js').then((m) => ({ default: m.CommandPalette })),
+);
 import { ErrorBanner } from '../components/error-banner.js';
 import { ToastProvider } from '../components/toast-provider.js';
 import { useUIStore } from '../stores/ui-store.js';
@@ -20,7 +22,14 @@ function RootLayout() {
         return;
       }
       // '/' → command palette (spec: interaction-model.md line 46)
-      if (e.key === '/' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) {
+      if (
+        e.key === '/' &&
+        !(
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          e.target instanceof HTMLSelectElement
+        )
+      ) {
         e.preventDefault();
         toggleCommandPalette();
         return;
@@ -44,7 +53,9 @@ function RootLayout() {
           <Outlet />
         </div>
       </main>
-      <CommandPalette />
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
       <ToastProvider />
     </div>
   );

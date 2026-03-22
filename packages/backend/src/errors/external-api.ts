@@ -6,7 +6,11 @@ export class ExternalAPIError extends AppError {
 
   constructor(
     message: string,
-    details?: { platform?: 'github' | 'gitlab'; httpStatus?: number; rateLimitReset?: string },
+    details?: {
+      platform?: 'github' | 'gitlab' | 'bitbucket' | 'gitea' | 'jira' | 'clickup';
+      httpStatus?: number;
+      rateLimitReset?: string;
+    },
   ) {
     super(message, details as Record<string, unknown>);
   }

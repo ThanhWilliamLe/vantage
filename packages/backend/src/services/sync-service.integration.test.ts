@@ -6,6 +6,8 @@ import {
   type AdapterFactory,
   type GitHubAdapterInterface,
   type GitLabAdapterInterface,
+  type BitbucketAdapterInterface,
+  type GiteaAdapterInterface,
 } from './sync-service.js';
 import { ExternalAPIError } from '../errors/index.js';
 import { ulid } from 'ulid';
@@ -97,6 +99,8 @@ async function insertLocalCommit(opts: {
 function createMockAdapterFactory(overrides?: {
   github?: Partial<GitHubAdapterInterface>;
   gitlab?: Partial<GitLabAdapterInterface>;
+  bitbucket?: Partial<BitbucketAdapterInterface>;
+  gitea?: Partial<GiteaAdapterInterface>;
 }): AdapterFactory {
   return {
     createGitHub(): GitHubAdapterInterface {
@@ -136,6 +140,53 @@ function createMockAdapterFactory(overrides?: {
             draft: false,
             sourceBranch: 'feature-x',
             authorUsername: 'testuser',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T10:00:00Z',
+            updatedAt: '2026-03-18T12:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          })),
+      };
+    },
+    createBitbucket(): BitbucketAdapterInterface {
+      return {
+        fetchPRsSince: overrides?.bitbucket?.fetchPRsSince ?? (async () => []),
+        fetchPRDetail:
+          overrides?.bitbucket?.fetchPRDetail ??
+          (async () => ({
+            id: 1,
+            title: 'Test BB PR',
+            description: null,
+            state: 'OPEN',
+            draft: false,
+            headBranch: 'feature-x',
+            authorLogin: 'testuser',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T10:00:00Z',
+            updatedAt: '2026-03-18T12:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          })),
+      };
+    },
+    createGitea(): GiteaAdapterInterface {
+      return {
+        fetchPRsSince: overrides?.gitea?.fetchPRsSince ?? (async () => []),
+        fetchPRDetail:
+          overrides?.gitea?.fetchPRDetail ??
+          (async () => ({
+            number: 1,
+            title: 'Test Gitea PR',
+            body: null,
+            state: 'open' as const,
+            draft: false,
+            merged: false,
+            headBranch: 'feature-x',
+            authorLogin: 'testuser',
             linesAdded: 0,
             linesDeleted: 0,
             filesChanged: 0,
@@ -515,6 +566,49 @@ describe('SyncService', () => {
             }),
           };
         },
+        createBitbucket(): BitbucketAdapterInterface {
+          return {
+            fetchPRsSince: async () => [],
+            fetchPRDetail: async () => ({
+              id: 1,
+              title: '',
+              description: null,
+              state: 'OPEN',
+              draft: false,
+              headBranch: '',
+              authorLogin: '',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '',
+              updatedAt: '',
+              mergedAt: null,
+              commitSHAs: [],
+            }),
+          };
+        },
+        createGitea(): GiteaAdapterInterface {
+          return {
+            fetchPRsSince: async () => [],
+            fetchPRDetail: async () => ({
+              number: 1,
+              title: '',
+              body: null,
+              state: 'open' as const,
+              draft: false,
+              merged: false,
+              headBranch: '',
+              authorLogin: '',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '',
+              updatedAt: '',
+              mergedAt: null,
+              commitSHAs: [],
+            }),
+          };
+        },
       };
 
       const result = await SyncService.syncAll(db, encryptionKey, factory);
@@ -668,6 +762,445 @@ describe('SyncService', () => {
       expect(pr!.prStatus).toBe('merged');
     });
   });
+
+  describe('Bitbucket sync', () => {
+    it('creates PR records from Bitbucket adapter', async () => {
+      const { repoId } = await setupBitbucketRepo('BB-Sync-Test');
+
+      const factory = createMockAdapterFactory({
+        bitbucket: {
+          fetchPRsSince: async () => [
+            {
+              id: 10,
+              title: 'BB PR',
+              description: 'Bitbucket PR',
+              state: 'OPEN',
+              draft: false,
+              headBranch: 'feature/bb',
+              authorLogin: 'bbuser',
+              linesAdded: 30,
+              linesDeleted: 5,
+              filesChanged: 2,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            id: 10,
+            title: 'BB PR',
+            description: 'Bitbucket PR',
+            state: 'OPEN',
+            draft: false,
+            headBranch: 'feature/bb',
+            authorLogin: 'bbuser',
+            linesAdded: 30,
+            linesDeleted: 5,
+            filesChanged: 2,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: ['bb_sha_1', 'bb_sha_2'],
+          }),
+        },
+      });
+
+      const result = await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        factory,
+      );
+
+      expect(result.newItems).toBe(1);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr).toBeDefined();
+      expect(pr!.platformId).toBe('10');
+      expect(pr!.title).toBe('BB PR');
+      expect(pr!.prStatus).toBe('open');
+      expect(pr!.branch).toBe('feature/bb');
+    });
+
+    it('maps MERGED state correctly', async () => {
+      const { repoId } = await setupBitbucketRepo('BB-Merged-Test');
+
+      const factory = createMockAdapterFactory({
+        bitbucket: {
+          fetchPRsSince: async () => [
+            {
+              id: 20,
+              title: 'Merged BB PR',
+              description: null,
+              state: 'MERGED',
+              draft: false,
+              headBranch: 'fix/bb',
+              authorLogin: 'bbuser',
+              linesAdded: 10,
+              linesDeleted: 2,
+              filesChanged: 1,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: '2026-03-18T14:00:00Z',
+            },
+          ],
+          fetchPRDetail: async () => ({
+            id: 20,
+            title: 'Merged BB PR',
+            description: null,
+            state: 'MERGED',
+            draft: false,
+            headBranch: 'fix/bb',
+            authorLogin: 'bbuser',
+            linesAdded: 10,
+            linesDeleted: 2,
+            filesChanged: 1,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: '2026-03-18T14:00:00Z',
+            commitSHAs: [],
+          }),
+        },
+      });
+
+      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr!.prStatus).toBe('merged');
+    });
+
+    it('maps DECLINED state to closed', async () => {
+      const { repoId } = await setupBitbucketRepo('BB-Declined-Test');
+
+      const factory = createMockAdapterFactory({
+        bitbucket: {
+          fetchPRsSince: async () => [
+            {
+              id: 30,
+              title: 'Declined BB PR',
+              description: null,
+              state: 'DECLINED',
+              draft: false,
+              headBranch: 'fix/declined',
+              authorLogin: 'bbuser',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            id: 30,
+            title: 'Declined BB PR',
+            description: null,
+            state: 'DECLINED',
+            draft: false,
+            headBranch: 'fix/declined',
+            authorLogin: 'bbuser',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          }),
+        },
+      });
+
+      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr!.prStatus).toBe('closed');
+    });
+  });
+
+  describe('Gitea sync', () => {
+    it('creates PR records from Gitea adapter', async () => {
+      const { repoId } = await setupGiteaRepo('Gitea-Sync-Test');
+
+      const factory = createMockAdapterFactory({
+        gitea: {
+          fetchPRsSince: async () => [
+            {
+              number: 5,
+              title: 'Gitea PR',
+              body: 'Gitea pull request',
+              state: 'open' as const,
+              draft: false,
+              merged: false,
+              headBranch: 'feature/gitea',
+              authorLogin: 'giteauser',
+              linesAdded: 40,
+              linesDeleted: 8,
+              filesChanged: 3,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            number: 5,
+            title: 'Gitea PR',
+            body: 'Gitea pull request',
+            state: 'open' as const,
+            draft: false,
+            merged: false,
+            headBranch: 'feature/gitea',
+            authorLogin: 'giteauser',
+            linesAdded: 40,
+            linesDeleted: 8,
+            filesChanged: 3,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: ['gitea_sha_1', 'gitea_sha_2'],
+          }),
+        },
+      });
+
+      const result = await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        factory,
+      );
+
+      expect(result.newItems).toBe(1);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr).toBeDefined();
+      expect(pr!.platformId).toBe('5');
+      expect(pr!.title).toBe('Gitea PR');
+      expect(pr!.prStatus).toBe('open');
+      expect(pr!.branch).toBe('feature/gitea');
+    });
+
+    it('marks merged Gitea PRs correctly', async () => {
+      const { repoId } = await setupGiteaRepo('Gitea-Merged-Test');
+
+      const factory = createMockAdapterFactory({
+        gitea: {
+          fetchPRsSince: async () => [
+            {
+              number: 15,
+              title: 'Merged Gitea PR',
+              body: null,
+              state: 'closed' as const,
+              draft: false,
+              merged: true,
+              headBranch: 'fix/gitea',
+              authorLogin: 'giteauser',
+              linesAdded: 10,
+              linesDeleted: 2,
+              filesChanged: 1,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: '2026-03-18T14:00:00Z',
+            },
+          ],
+          fetchPRDetail: async () => ({
+            number: 15,
+            title: 'Merged Gitea PR',
+            body: null,
+            state: 'closed' as const,
+            draft: false,
+            merged: true,
+            headBranch: 'fix/gitea',
+            authorLogin: 'giteauser',
+            linesAdded: 10,
+            linesDeleted: 2,
+            filesChanged: 1,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: '2026-03-18T14:00:00Z',
+            commitSHAs: [],
+          }),
+        },
+      });
+
+      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr!.prStatus).toBe('merged');
+    });
+
+    it('marks draft Gitea PRs correctly', async () => {
+      const { repoId } = await setupGiteaRepo('Gitea-Draft-Test');
+
+      const factory = createMockAdapterFactory({
+        gitea: {
+          fetchPRsSince: async () => [
+            {
+              number: 25,
+              title: 'Draft Gitea PR',
+              body: null,
+              state: 'open' as const,
+              draft: true,
+              merged: false,
+              headBranch: 'wip/gitea',
+              authorLogin: 'giteauser',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            number: 25,
+            title: 'Draft Gitea PR',
+            body: null,
+            state: 'open' as const,
+            draft: true,
+            merged: false,
+            headBranch: 'wip/gitea',
+            authorLogin: 'giteauser',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          }),
+        },
+      });
+
+      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+
+      const pr = await db
+        .select()
+        .from(schema.codeChange)
+        .where(and(eq(schema.codeChange.repoId, repoId), eq(schema.codeChange.type, 'pr')))
+        .get();
+
+      expect(pr!.prStatus).toBe('draft');
+    });
+  });
+
+  describe('syncAll dispatches to correct adapters', () => {
+    it('includes bitbucket and gitea repos in syncAll', async () => {
+      await setupBitbucketRepo('SyncAll-BB');
+      await setupGiteaRepo('SyncAll-Gitea');
+
+      const factory = createMockAdapterFactory({
+        bitbucket: {
+          fetchPRsSince: async () => [
+            {
+              id: 100,
+              title: 'BB SyncAll',
+              description: null,
+              state: 'OPEN',
+              draft: false,
+              headBranch: 'bb-branch',
+              authorLogin: 'bb-author',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            id: 100,
+            title: 'BB SyncAll',
+            description: null,
+            state: 'OPEN',
+            draft: false,
+            headBranch: 'bb-branch',
+            authorLogin: 'bb-author',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          }),
+        },
+        gitea: {
+          fetchPRsSince: async () => [
+            {
+              number: 200,
+              title: 'Gitea SyncAll',
+              body: null,
+              state: 'open' as const,
+              draft: false,
+              merged: false,
+              headBranch: 'gitea-branch',
+              authorLogin: 'gitea-author',
+              linesAdded: 0,
+              linesDeleted: 0,
+              filesChanged: 0,
+              createdAt: '2026-03-18T09:00:00Z',
+              updatedAt: '2026-03-18T14:00:00Z',
+              mergedAt: null,
+            },
+          ],
+          fetchPRDetail: async () => ({
+            number: 200,
+            title: 'Gitea SyncAll',
+            body: null,
+            state: 'open' as const,
+            draft: false,
+            merged: false,
+            headBranch: 'gitea-branch',
+            authorLogin: 'gitea-author',
+            linesAdded: 0,
+            linesDeleted: 0,
+            filesChanged: 0,
+            createdAt: '2026-03-18T09:00:00Z',
+            updatedAt: '2026-03-18T14:00:00Z',
+            mergedAt: null,
+            commitSHAs: [],
+          }),
+        },
+      });
+
+      const result = await SyncService.syncAll(db, encryptionKey, factory);
+
+      // Should have synced at least the BB and Gitea repos we just created
+      const bbResults = result.results.filter(
+        (r) => r.platform === 'bitbucket' && r.status === 'synced',
+      );
+      const giteaResults = result.results.filter(
+        (r) => r.platform === 'gitea' && r.status === 'synced',
+      );
+
+      expect(bbResults.length).toBeGreaterThanOrEqual(1);
+      expect(giteaResults.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
 
 // ─── Helper to load full repo row ───────────────
@@ -681,4 +1214,71 @@ async function getRepoRow(repoId: string) {
 
   if (!row) throw new Error(`Repo ${repoId} not found`);
   return row;
+}
+
+/** Helper: create a project, credential, and Bitbucket repo record */
+async function setupBitbucketRepo(
+  name: string,
+  opts?: { owner?: string; repo?: string },
+): Promise<{ projectId: string; repoId: string; credentialId: string }> {
+  const project = await ProjectService.create(db, { name });
+  const projectId = project.id;
+
+  const credentialId = ulid();
+  const now = new Date().toISOString();
+  await db.insert(schema.gitCredential).values({
+    id: credentialId,
+    name: `${name}-cred`,
+    platform: 'bitbucket',
+    tokenEncrypted: encrypt('bb_test_token_123', encryptionKey),
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const repoId = ulid();
+  await db.insert(schema.repository).values({
+    id: repoId,
+    projectId,
+    type: 'bitbucket',
+    apiOwner: opts?.owner ?? 'test-workspace',
+    apiRepo: opts?.repo ?? 'test-repo',
+    credentialId,
+    createdAt: now,
+  });
+
+  return { projectId, repoId, credentialId };
+}
+
+/** Helper: create a project, credential, and Gitea repo record */
+async function setupGiteaRepo(
+  name: string,
+  opts?: { owner?: string; repo?: string },
+): Promise<{ projectId: string; repoId: string; credentialId: string }> {
+  const project = await ProjectService.create(db, { name });
+  const projectId = project.id;
+
+  const credentialId = ulid();
+  const now = new Date().toISOString();
+  await db.insert(schema.gitCredential).values({
+    id: credentialId,
+    name: `${name}-cred`,
+    platform: 'gitea',
+    tokenEncrypted: encrypt('gitea_test_token_123', encryptionKey),
+    instanceUrl: 'https://gitea.example.com',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const repoId = ulid();
+  await db.insert(schema.repository).values({
+    id: repoId,
+    projectId,
+    type: 'gitea',
+    apiOwner: opts?.owner ?? 'test-org',
+    apiRepo: opts?.repo ?? 'test-repo',
+    credentialId,
+    createdAt: now,
+  });
+
+  return { projectId, repoId, credentialId };
 }

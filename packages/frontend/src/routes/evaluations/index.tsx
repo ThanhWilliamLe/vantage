@@ -1,26 +1,21 @@
-import { createRoute } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
 import { useState, useMemo } from 'react';
+import { useMembers, useProjects, useSearch, useDayActivity } from '../../hooks/api/core.js';
 import {
   useEvaluations,
-  useMembers,
-  useProjects,
   useCreateEvaluation,
   useUpdateEvaluation,
   useDeleteEvaluation,
-  useSearch,
   useDailyPrefill,
   useQuarterlySynthesis,
-  useDayActivity,
-} from '../../hooks/use-api.js';
-import { format } from 'date-fns';
+} from '../../hooks/api/evaluations.js';
+import { format } from 'date-fns/format';
 import { toast } from 'sonner';
 import type { EvaluationEntry } from '@twle/vantage-shared';
 
 type Tab = 'daily' | 'log' | 'quarterly';
 type QuarterlyMode = 'per-member' | 'per-member-per-project';
 
-function Evaluations() {
+export function Evaluations() {
   const [activeTab, setActiveTab] = useState<Tab>('daily');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedQuarter, setSelectedQuarter] = useState(() => {
@@ -364,7 +359,7 @@ function Evaluations() {
             key={p.id}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs cursor-pointer transition-colors ${
               selectedIds.includes(p.id)
-                ? 'bg-accent/10 border-accent text-accent'
+                ? 'bg-accent/10 border-accent text-accent-text'
                 : 'bg-surface border-border text-text-secondary hover:border-border-hover'
             }`}
           >
@@ -413,7 +408,7 @@ function Evaluations() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-accent text-accent'
+                ? 'border-accent text-accent-text'
                 : 'border-transparent text-text-tertiary hover:text-text-secondary'
             }`}
           >
@@ -467,14 +462,14 @@ function Evaluations() {
           )}
 
           {selectedMemberId && (
-            <div className="bg-surface-raised border border-border rounded-lg p-4 mb-6">
+            <div className="bg-surface-raised border border-border rounded-sm p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-text-primary">New Daily Check-Up</h3>
                 {/* Bug 3: AI pre-fill button */}
                 <button
                   onClick={handleAiPrefill}
                   disabled={dailyPrefill.isFetching}
-                  className="px-3 py-1.5 bg-surface border border-border rounded text-xs text-text-secondary hover:text-accent hover:border-accent disabled:opacity-50 transition-colors"
+                  className="px-3 py-1.5 bg-surface border border-border rounded text-xs text-text-secondary hover:text-accent-text hover:border-accent-text disabled:opacity-50 transition-colors"
                 >
                   {dailyPrefill.isFetching ? 'Loading...' : 'AI Pre-fill'}
                 </button>
@@ -531,7 +526,7 @@ function Evaluations() {
                 <button
                   onClick={handleCreateDaily}
                   disabled={createEval.isPending || selectedProjectIds.length === 0}
-                  className="px-4 py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
                 >
                   {createEval.isPending ? 'Saving...' : 'Save Daily Check-Up'}
                 </button>
@@ -549,7 +544,7 @@ function Evaluations() {
                   .map((ev) => (
                     <div
                       key={ev.id}
-                      className="px-4 py-3 bg-surface-raised border border-border rounded-lg"
+                      className="px-4 py-3 bg-surface-raised border border-border rounded-sm"
                     >
                       {editingId === ev.id ? (
                         <div className="space-y-2">
@@ -570,7 +565,7 @@ function Evaluations() {
                             />
                             <button
                               onClick={() => handleSaveEdit(ev)}
-                              className="px-3 py-1 bg-accent text-white text-xs rounded"
+                              className="px-3 py-1 bg-accent text-white text-xs rounded-full"
                             >
                               Save
                             </button>
@@ -607,7 +602,7 @@ function Evaluations() {
                             )}
                             <button
                               onClick={() => startEdit(ev)}
-                              className="text-xs text-accent hover:text-accent-hover"
+                              className="text-xs text-accent-text hover:text-accent-hover"
                             >
                               Edit
                             </button>
@@ -781,14 +776,14 @@ function Evaluations() {
           </div>
 
           {selectedMemberId && (
-            <div className="bg-surface-raised border border-border rounded-lg p-4 mb-6">
+            <div className="bg-surface-raised border border-border rounded-sm p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-text-primary">New Quarterly Evaluation</h3>
                 {/* Bug 4: AI synthesis button */}
                 <button
                   onClick={handleAiSynthesis}
                   disabled={quarterlySynthesis.isFetching}
-                  className="px-3 py-1.5 bg-surface border border-border rounded text-xs text-text-secondary hover:text-accent hover:border-accent disabled:opacity-50 transition-colors"
+                  className="px-3 py-1.5 bg-surface border border-border rounded text-xs text-text-secondary hover:text-accent-text hover:border-accent-text disabled:opacity-50 transition-colors"
                 >
                   {quarterlySynthesis.isFetching ? 'Loading...' : 'AI Synthesis'}
                 </button>
@@ -800,9 +795,9 @@ function Evaluations() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setQuarterlyMode('per-member')}
-                      className={`px-3 py-1.5 rounded text-xs border transition-colors ${
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
                         quarterlyMode === 'per-member'
-                          ? 'bg-accent/10 border-accent text-accent'
+                          ? 'bg-accent/10 border-accent text-accent-text'
                           : 'bg-surface border-border text-text-secondary hover:border-border-hover'
                       }`}
                     >
@@ -810,9 +805,9 @@ function Evaluations() {
                     </button>
                     <button
                       onClick={() => setQuarterlyMode('per-member-per-project')}
-                      className={`px-3 py-1.5 rounded text-xs border transition-colors ${
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
                         quarterlyMode === 'per-member-per-project'
-                          ? 'bg-accent/10 border-accent text-accent'
+                          ? 'bg-accent/10 border-accent text-accent-text'
                           : 'bg-surface border-border text-text-secondary hover:border-border-hover'
                       }`}
                     >
@@ -883,7 +878,7 @@ function Evaluations() {
                     createEval.isPending ||
                     (quarterlyMode === 'per-member-per-project' && quarterlyProjectIds.length === 0)
                   }
-                  className="px-4 py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
                 >
                   {createEval.isPending ? 'Saving...' : 'Save Quarterly Evaluation'}
                 </button>
@@ -904,7 +899,7 @@ function Evaluations() {
                     .map((ev) => (
                       <div
                         key={ev.id}
-                        className="px-4 py-3 bg-surface-raised border border-border rounded-lg flex items-start justify-between"
+                        className="px-4 py-3 bg-surface-raised border border-border rounded-sm flex items-start justify-between"
                       >
                         <div>
                           <span className="text-sm text-text-primary">
@@ -953,9 +948,3 @@ function Evaluations() {
     </div>
   );
 }
-
-export const evaluationsIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/evaluations',
-  component: Evaluations,
-});

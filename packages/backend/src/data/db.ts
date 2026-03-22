@@ -2,7 +2,10 @@ import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema.js';
 
-export function createDatabase(dbPath: string | ':memory:'): { db: ReturnType<typeof drizzle>; sqlite: DatabaseType } {
+export function createDatabase(dbPath: string | ':memory:'): {
+  db: ReturnType<typeof drizzle>;
+  sqlite: DatabaseType;
+} {
   const sqlite = new Database(dbPath);
 
   // Enable WAL mode for better concurrent read performance
@@ -259,13 +262,61 @@ export function runMigrations(sqlite: Database.Database) {
     END;
   `);
 
+  // v1.2 migration: task_tracker_credential table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_tracker_credential (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES project(id),
+      name TEXT NOT NULL,
+      platform TEXT NOT NULL,
+      token_encrypted TEXT NOT NULL,
+      instance_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ttc_project ON task_tracker_credential(project_id);
+  `);
+
+  // v1.2: add tracker_credential_id to task_pattern
+  try {
+    sqlite
+      .prepare(
+        'ALTER TABLE task_pattern ADD COLUMN tracker_credential_id TEXT REFERENCES task_tracker_credential(id)',
+      )
+      .run();
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // v1.1 migration: add source column to evaluation_entry
+  try {
+    sqlite
+      .prepare(`ALTER TABLE evaluation_entry ADD COLUMN source TEXT NOT NULL DEFAULT 'native'`)
+      .run();
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    sqlite
+      .prepare(
+        'CREATE INDEX IF NOT EXISTS idx_eval_source ON evaluation_entry(source, member_id, date)',
+      )
+      .run();
+  } catch {
+    // Index already exists — ignore
+  }
+
   // Seed app_config singleton if not present
   const existing = sqlite.prepare('SELECT id FROM app_config WHERE id = ?').get('default');
   if (!existing) {
-    sqlite.prepare(`
+    sqlite
+      .prepare(
+        `
       INSERT INTO app_config (id, ai_auto_tier1, schema_version, created_at, updated_at)
       VALUES (?, 1, 1, ?, ?)
-    `).run('default', now, now);
+    `,
+      )
+      .run('default', now, now);
   }
 }
 

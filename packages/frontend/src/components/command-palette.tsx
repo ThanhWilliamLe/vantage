@@ -76,7 +76,7 @@ export function CommandPalette() {
     >
       <div className="fixed inset-0 bg-black/50" onClick={() => setOpen(false)} />
       <Command
-        className="relative w-full max-w-lg bg-surface-overlay border border-border rounded-lg shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg bg-surface-overlay border border-border rounded-sm shadow-2xl overflow-hidden"
         label="Command palette"
       >
         <Command.Input

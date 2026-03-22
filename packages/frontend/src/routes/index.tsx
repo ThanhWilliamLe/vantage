@@ -4,13 +4,14 @@ import {
   usePendingQueue,
   useProjects,
   useMembers,
-  useEvaluations,
   useAIStatus,
-  useHistory,
   useWorkload,
-} from '../hooks/use-api.js';
+} from '../hooks/api/core.js';
+import { useHistory } from '../hooks/api/reviews.js';
+import { useEvaluations } from '../hooks/api/evaluations.js';
 import { useMemo } from 'react';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
 
 function StatCard({
   label,
@@ -26,7 +27,7 @@ function StatCard({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col gap-1 p-4 rounded-lg border transition-colors text-left ${
+      className={`flex flex-col gap-1 p-4 rounded-sm border transition-colors text-left ${
         accent
           ? 'bg-accent/10 border-accent/30 hover:bg-accent/15'
           : 'bg-surface-raised border-border hover:bg-surface-overlay'
@@ -129,7 +130,7 @@ function Dashboard() {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-24 rounded-lg bg-surface-raised border border-border animate-pulse"
+              className="h-24 rounded-sm bg-surface-raised border border-border animate-pulse"
             />
           ))}
         </div>
@@ -152,7 +153,7 @@ function Dashboard() {
           </p>
           <button
             onClick={() => navigate({ to: '/settings', search: {} })}
-            className="mt-2 px-4 py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover transition-colors"
+            className="mt-2 px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover transition-colors"
           >
             Go to Settings
           </button>
@@ -169,7 +170,7 @@ function Dashboard() {
       </p>
 
       {aiStatus.data?.processing && (
-        <div className="mt-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg text-sm text-accent flex items-center gap-2">
+        <div className="mt-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-sm text-sm text-accent-text flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
           AI is processing — {aiStatus.data.completed}/{aiStatus.data.total} complete
         </div>
@@ -204,14 +205,14 @@ function Dashboard() {
       {/* Tier 2 — Action areas */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Review Queue by Project */}
-        <div className="lg:col-span-2 bg-surface-raised border border-border rounded-lg p-4">
+        <div className="lg:col-span-2 bg-surface-raised border border-border rounded-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
               Review Queue by Project
             </h2>
             <button
               onClick={() => navigate({ to: '/reviews' })}
-              className="text-xs text-accent hover:text-accent-hover"
+              className="text-xs text-accent-text hover:text-accent-hover"
             >
               Open queue
             </button>
@@ -234,14 +235,14 @@ function Dashboard() {
         </div>
 
         {/* Flagged Items */}
-        <div className="bg-surface-raised border border-border rounded-lg p-4">
+        <div className="bg-surface-raised border border-border rounded-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
               Flagged Items
             </h2>
             <button
               onClick={() => navigate({ to: '/reviews/history', search: { status: 'flagged' } })}
-              className="text-xs text-accent hover:text-accent-hover"
+              className="text-xs text-accent-text hover:text-accent-hover"
             >
               View all
             </button>
@@ -267,7 +268,7 @@ function Dashboard() {
       {/* Tier 3 — Context */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Activity Pulse */}
-        <div className="bg-surface-raised border border-border rounded-lg p-4">
+        <div className="bg-surface-raised border border-border rounded-sm p-4">
           <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
             Activity Pulse
           </h2>
@@ -293,14 +294,14 @@ function Dashboard() {
         </div>
 
         {/* Workload (7d) */}
-        <div className="bg-surface-raised border border-border rounded-lg p-4">
+        <div className="bg-surface-raised border border-border rounded-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
               Workload (7d)
             </h2>
             <button
               onClick={() => navigate({ to: '/workload' })}
-              className="text-xs text-accent hover:text-accent-hover"
+              className="text-xs text-accent-text hover:text-accent-hover"
             >
               Full view
             </button>
@@ -334,14 +335,14 @@ function Dashboard() {
         </div>
 
         {/* Recent Evaluations */}
-        <div className="bg-surface-raised border border-border rounded-lg p-4">
+        <div className="bg-surface-raised border border-border rounded-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
               Recent Evaluations
             </h2>
             <button
               onClick={() => navigate({ to: '/evaluations' })}
-              className="text-xs text-accent hover:text-accent-hover"
+              className="text-xs text-accent-text hover:text-accent-hover"
             >
               View all
             </button>

@@ -1,10 +1,14 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
-import { useProject, useProjectAssignments, useCodeChanges, useMembers } from '../../hooks/use-api.js';
-import { format } from 'date-fns';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import {
+  useProject,
+  useProjectAssignments,
+  useCodeChanges,
+  useMembers,
+} from '../../hooks/api/core.js';
+import { format } from 'date-fns/format';
 
-function ProjectDrillDown() {
-  const { id } = projectIdRoute.useParams();
+export function ProjectDetail() {
+  const { id } = useParams({ from: '/projects/$id' });
   const navigate = useNavigate();
   const project = useProject(id);
   const assignments = useProjectAssignments(id);
@@ -19,7 +23,10 @@ function ProjectDrillDown() {
         <h1 className="text-xl font-semibold text-text-primary">Project Detail</h1>
         <div className="mt-4 space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+            <div
+              key={i}
+              className="h-16 bg-surface-raised border border-border rounded animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -44,7 +51,7 @@ function ProjectDrillDown() {
     <div>
       <button
         onClick={() => navigate({ to: '/projects' })}
-        className="text-sm text-accent hover:text-accent-hover mb-4 inline-block"
+        className="text-sm text-accent-text hover:text-accent-hover mb-4 inline-block"
       >
         &larr; Back to Projects
       </button>
@@ -55,7 +62,9 @@ function ProjectDrillDown() {
           <div className="flex items-center gap-2 mt-1">
             <span
               className={`text-xs px-1.5 py-0.5 rounded ${
-                p.status === 'active' ? 'bg-success/20 text-success' : 'bg-surface-overlay text-text-tertiary'
+                p.status === 'active'
+                  ? 'bg-success/20 text-success'
+                  : 'bg-surface-overlay text-text-tertiary'
               }`}
             >
               {p.status}
@@ -75,7 +84,10 @@ function ProjectDrillDown() {
         ) : (assignments.data?.length ?? 0) === 0 ? (
           <p className="text-sm text-text-tertiary">
             No team members assigned yet. Assign members in{' '}
-            <button onClick={() => navigate({ to: '/settings', search: { tab: 'projects' } })} className="text-accent hover:text-accent-hover">
+            <button
+              onClick={() => navigate({ to: '/settings', search: { tab: 'projects' } })}
+              className="text-accent-text hover:text-accent-hover"
+            >
               Settings
             </button>
             .
@@ -86,13 +98,15 @@ function ProjectDrillDown() {
               <div
                 key={a.id}
                 onClick={() => navigate({ to: '/members/$id', params: { id: a.memberId } })}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-lg cursor-pointer hover:bg-surface-overlay transition-colors"
+                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm cursor-pointer hover:bg-surface-overlay transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-semibold">
                     {(memberMap.get(a.memberId) ?? '?').charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm text-accent hover:text-accent-hover">{memberMap.get(a.memberId) ?? a.memberId}</span>
+                  <span className="text-sm text-accent-text hover:text-accent-hover">
+                    {memberMap.get(a.memberId) ?? a.memberId}
+                  </span>
                   {a.role && (
                     <span className="text-xs px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
                       {a.role}
@@ -123,7 +137,7 @@ function ProjectDrillDown() {
             {recentChanges.data!.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-lg"
+                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
               >
                 <div>
                   <span className="text-sm text-text-primary">{item.title}</span>
@@ -134,7 +148,7 @@ function ProjectDrillDown() {
                           e.stopPropagation();
                           navigate({ to: '/members/$id', params: { id: item.authorMemberId! } });
                         }}
-                        className="text-accent hover:text-accent-hover"
+                        className="text-accent-text hover:text-accent-hover"
                       >
                         {item.authorName ?? item.authorRaw}
                       </button>
@@ -175,9 +189,3 @@ function ProjectDrillDown() {
     </div>
   );
 }
-
-export const projectIdRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/projects/$id',
-  component: ProjectDrillDown,
-});

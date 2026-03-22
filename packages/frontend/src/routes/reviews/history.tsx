@@ -1,17 +1,13 @@
-import { createRoute, useNavigate, Link } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
+import { useNavigate, Link } from '@tanstack/react-router';
 import { useState, useMemo } from 'react';
+import { useProjects, useMembers, useSearch, useCodeChange } from '../../hooks/api/core.js';
 import {
   useHistory,
-  useProjects,
-  useMembers,
-  useSearch,
-  useCodeChange,
   useCommunicateAction,
   useResolveAction,
   useRecentChangesByProject,
-} from '../../hooks/use-api.js';
-import { format } from 'date-fns';
+} from '../../hooks/api/reviews.js';
+import { format } from 'date-fns/format';
 import type { CodeChange } from '@twle/vantage-shared';
 
 function StatusBadge({ status }: { status: string }) {
@@ -56,7 +52,7 @@ function HistoryFlaggedActions({ item }: { item: CodeChange }) {
       )}
 
       {isFlagged && hasNewerCommits && (
-        <div className="mb-3 px-3 py-2 bg-accent/10 border border-accent/20 rounded text-xs text-accent">
+        <div className="mb-3 px-3 py-2 bg-accent/10 border border-accent/20 rounded text-xs text-accent-text">
           Newer commits detected after flag date — may indicate resolution.
         </div>
       )}
@@ -66,7 +62,7 @@ function HistoryFlaggedActions({ item }: { item: CodeChange }) {
           <button
             onClick={() => communicate.mutate(item.id)}
             disabled={communicate.isPending}
-            className="px-4 py-2 bg-warning text-base text-sm rounded hover:bg-warning/90 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-warning text-base text-sm rounded-full hover:bg-warning/90 disabled:opacity-50 transition-colors"
           >
             {communicate.isPending ? 'Updating...' : 'Mark Communicated'}
           </button>
@@ -75,7 +71,7 @@ function HistoryFlaggedActions({ item }: { item: CodeChange }) {
           <button
             onClick={() => resolve.mutate(item.id)}
             disabled={resolve.isPending}
-            className="px-4 py-2 bg-success text-white text-sm rounded hover:bg-success/90 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-success text-white text-sm rounded-full hover:bg-success/90 disabled:opacity-50 transition-colors"
           >
             {resolve.isPending ? 'Updating...' : 'Mark Resolved'}
           </button>
@@ -85,7 +81,7 @@ function HistoryFlaggedActions({ item }: { item: CodeChange }) {
   );
 }
 
-function ReviewHistory() {
+export function ReviewHistory() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterProject, setFilterProject] = useState('');
@@ -126,7 +122,7 @@ function ReviewHistory() {
         </div>
         <button
           onClick={() => navigate({ to: '/reviews' })}
-          className="text-sm text-accent hover:text-accent-hover"
+          className="text-sm text-accent-text hover:text-accent-hover"
         >
           Back to Queue
         </button>
@@ -249,7 +245,7 @@ function ReviewHistory() {
                         to="/members/$id"
                         params={{ id: item.authorMemberId }}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-accent hover:text-accent-hover"
+                        className="text-accent-text hover:text-accent-hover"
                       >
                         {item.authorName ?? item.authorRaw}
                       </Link>
@@ -281,7 +277,7 @@ function ReviewHistory() {
 
       {/* Detail panel */}
       {selectedId && (
-        <div className="mt-4 bg-surface-raised border border-border rounded-lg p-5">
+        <div className="mt-4 bg-surface-raised border border-border rounded-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-text-tertiary">Detail View</span>
             <button
@@ -307,7 +303,7 @@ function ReviewHistory() {
                     <Link
                       to="/members/$id"
                       params={{ id: detail.data.authorMemberId }}
-                      className="text-accent hover:text-accent-hover"
+                      className="text-accent-text hover:text-accent-hover"
                     >
                       {detail.data.authorName ?? detail.data.authorRaw}
                     </Link>
@@ -424,9 +420,3 @@ function ReviewHistory() {
     </div>
   );
 }
-
-export const reviewsHistoryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/reviews/history',
-  component: ReviewHistory,
-});

@@ -1,9 +1,14 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
+import { useNavigate } from '@tanstack/react-router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   usePendingQueue,
   useCodeChange,
+  useProjects,
+  useMembers,
+  useAIStatus,
+  type DetectedTask,
+} from '../../hooks/api/core.js';
+import {
   useCodeChangeDiff,
   useReviewAction,
   useBatchAction,
@@ -12,12 +17,8 @@ import {
   useRecentChangesByProject,
   useDeepAnalysis,
   useRequestDeepAnalysis,
-  useProjects,
-  useMembers,
-  useAIStatus,
-  type DetectedTask,
-} from '../../hooks/use-api.js';
-import { formatDistanceToNow } from 'date-fns';
+} from '../../hooks/api/reviews.js';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import type { CodeChange } from '@twle/vantage-shared';
 
 function RiskBadge({ level }: { level: string | null }) {
@@ -146,7 +147,7 @@ function FlaggedLifecycleActions({
     <div className="mt-4">
       {/* Resolution hint for flagged items */}
       {isFlagged && hasNewerCommits && (
-        <div className="mb-3 px-3 py-2 bg-accent/10 border border-accent/20 rounded text-xs text-accent">
+        <div className="mb-3 px-3 py-2 bg-accent/10 border border-accent/20 rounded text-xs text-accent-text">
           Newer commits detected after flag date — may indicate resolution.
         </div>
       )}
@@ -165,7 +166,7 @@ function FlaggedLifecycleActions({
           <button
             onClick={() => communicateAction.mutate(selectedId)}
             disabled={communicateAction.isPending}
-            className="px-4 py-2 bg-warning text-base text-sm rounded hover:bg-warning/90 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-warning text-base text-sm rounded-full hover:bg-warning/90 disabled:opacity-50 transition-colors"
           >
             {communicateAction.isPending ? 'Updating...' : 'Mark Communicated'}
           </button>
@@ -174,7 +175,7 @@ function FlaggedLifecycleActions({
           <button
             onClick={() => resolveAction.mutate(selectedId)}
             disabled={resolveAction.isPending}
-            className="px-4 py-2 bg-success text-white text-sm rounded hover:bg-success/90 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-success text-white text-sm rounded-full hover:bg-success/90 disabled:opacity-50 transition-colors"
           >
             {resolveAction.isPending ? 'Updating...' : 'Mark Resolved'}
           </button>
@@ -243,7 +244,7 @@ function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
             <button
               onClick={() => requestAnalysis.mutate({ codeChangeId, force: true })}
               disabled={requestAnalysis.isPending}
-              className="text-xs text-accent hover:text-accent-hover disabled:opacity-50"
+              className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
             >
               {requestAnalysis.isPending ? 'Re-analyzing...' : 'Re-analyze'}
             </button>
@@ -254,7 +255,7 @@ function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
           <button
             onClick={() => requestAnalysis.mutate({ codeChangeId })}
             disabled={requestAnalysis.isPending}
-            className="px-3 py-1.5 bg-accent/10 text-accent text-sm rounded hover:bg-accent/20 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 bg-accent/10 text-accent-text text-sm rounded-full hover:bg-accent/20 disabled:opacity-50 transition-colors"
           >
             {requestAnalysis.isPending ? 'Requesting...' : 'Request Deep Analysis'}
           </button>
@@ -271,7 +272,7 @@ function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
   );
 }
 
-function ReviewQueue() {
+export function ReviewQueue() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -303,6 +304,12 @@ function ReviewQueue() {
       setSelectedId(items[0].id);
     }
   }, [items, selectedId]);
+
+  // Reset notes and flag reason when switching items
+  useEffect(() => {
+    setNotes('');
+    setFlagReason('');
+  }, [selectedId]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -408,7 +415,7 @@ function ReviewQueue() {
             New code changes will appear here after a repository scan. Check{' '}
             <button
               onClick={() => navigate({ to: '/reviews/history', search: {} })}
-              className="text-accent hover:text-accent-hover"
+              className="text-accent-text hover:text-accent-hover"
             >
               review history
             </button>{' '}
@@ -433,7 +440,7 @@ function ReviewQueue() {
       </div>
 
       {aiStatus.data?.processing && (
-        <div className="mb-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg text-sm text-accent flex items-center gap-2">
+        <div className="mb-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-sm text-sm text-accent-text flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
           AI processing — {aiStatus.data.completed}/{aiStatus.data.total} complete
         </div>
@@ -479,17 +486,17 @@ function ReviewQueue() {
 
       {/* Batch actions */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-surface-overlay border border-border rounded-lg">
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-surface-overlay border border-border rounded-sm">
           <span className="text-sm text-text-secondary">{selectedIds.size} selected</span>
           <button
             onClick={() => handleBatch('review')}
-            className="px-3 py-1 bg-success/20 text-success text-xs rounded hover:bg-success/30"
+            className="px-3 py-1 bg-success/20 text-success text-xs rounded-full hover:bg-success/30"
           >
             Review All
           </button>
           <button
             onClick={() => handleBatch('defer')}
-            className="px-3 py-1 bg-warning/20 text-warning text-xs rounded hover:bg-warning/30"
+            className="px-3 py-1 bg-warning/20 text-warning text-xs rounded-full hover:bg-warning/30"
           >
             Defer All
           </button>
@@ -516,7 +523,7 @@ function ReviewQueue() {
             <div
               key={item.id}
               onClick={() => setSelectedId(item.id)}
-              className={`flex items-start gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors border ${
+              className={`flex items-start gap-2 px-3 py-2.5 rounded-sm cursor-pointer transition-colors border ${
                 selectedId === item.id
                   ? 'bg-surface-overlay border-accent/40'
                   : 'bg-surface-raised border-border hover:bg-surface-overlay'
@@ -553,7 +560,7 @@ function ReviewQueue() {
         </div>
 
         {/* Detail pane */}
-        <div className="lg:col-span-3 bg-surface-raised border border-border rounded-lg p-5 overflow-y-auto max-h-[70vh]">
+        <div className="lg:col-span-3 bg-surface-raised border border-border rounded-sm p-5 overflow-y-auto max-h-[70vh]">
           {!selectedId ? (
             <div className="flex items-center justify-center h-full text-text-tertiary text-sm">
               Select an item to view details
@@ -685,7 +692,7 @@ function ReviewQueue() {
                     })
                   }
                   disabled={reviewAction.isPending}
-                  className="px-4 py-2 bg-success text-white text-sm rounded hover:bg-success/90 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-success text-white text-sm rounded-full hover:bg-success/90 disabled:opacity-50 transition-colors"
                 >
                   Review (r)
                 </button>
@@ -696,14 +703,14 @@ function ReviewQueue() {
                     }
                   }}
                   disabled={reviewAction.isPending || !flagReason}
-                  className="px-4 py-2 bg-danger text-white text-sm rounded hover:bg-danger/90 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-danger text-white text-sm rounded-full hover:bg-danger/90 disabled:opacity-50 transition-colors"
                 >
                   Flag (f)
                 </button>
                 <button
                   onClick={() => reviewAction.mutate({ id: selectedId, action: 'defer' })}
                   disabled={reviewAction.isPending}
-                  className="px-4 py-2 bg-warning text-base text-sm rounded hover:bg-warning/90 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-warning text-base text-sm rounded-full hover:bg-warning/90 disabled:opacity-50 transition-colors"
                 >
                   Defer (d)
                 </button>
@@ -716,9 +723,3 @@ function ReviewQueue() {
     </div>
   );
 }
-
-export const reviewsIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/reviews',
-  component: ReviewQueue,
-});

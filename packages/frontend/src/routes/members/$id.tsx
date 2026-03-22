@@ -1,12 +1,24 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
-import { useMember, useMemberAssignments, useCodeChanges, useEvaluations, useProjects, useCreateAssignment, useEndAssignment, useMemberIdentities, useAddIdentity, useRemoveIdentity } from '../../hooks/use-api.js';
-import { format } from 'date-fns';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import {
+  useMember,
+  useMemberAssignments,
+  useCodeChanges,
+  useProjects,
+} from '../../hooks/api/core.js';
+import { useEvaluations } from '../../hooks/api/evaluations.js';
+import {
+  useCreateAssignment,
+  useEndAssignment,
+  useMemberIdentities,
+  useAddIdentity,
+  useRemoveIdentity,
+} from '../../hooks/api/settings.js';
+import { format } from 'date-fns/format';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-function MemberDrillDown() {
-  const { id } = memberIdRoute.useParams();
+export function MemberDetail() {
+  const { id } = useParams({ from: '/members/$id' });
   const navigate = useNavigate();
   const member = useMember(id);
   const assignments = useMemberAssignments(id);
@@ -22,7 +34,10 @@ function MemberDrillDown() {
         <h1 className="text-xl font-semibold text-text-primary">Member Detail</h1>
         <div className="mt-4 space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+            <div
+              key={i}
+              className="h-16 bg-surface-raised border border-border rounded animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -47,7 +62,7 @@ function MemberDrillDown() {
     <div>
       <button
         onClick={() => navigate({ to: '/members' })}
-        className="text-sm text-accent hover:text-accent-hover mb-4 inline-block"
+        className="text-sm text-accent-text hover:text-accent-hover mb-4 inline-block"
       >
         &larr; Back to Members
       </button>
@@ -60,7 +75,9 @@ function MemberDrillDown() {
           <h1 className="text-xl font-semibold text-text-primary">{m.name}</h1>
           <span
             className={`text-xs px-1.5 py-0.5 rounded ${
-              m.status === 'active' ? 'bg-success/20 text-success' : 'bg-surface-overlay text-text-tertiary'
+              m.status === 'active'
+                ? 'bg-success/20 text-success'
+                : 'bg-surface-overlay text-text-tertiary'
             }`}
           >
             {m.status}
@@ -83,7 +100,7 @@ function MemberDrillDown() {
               <div
                 key={item.id}
                 onClick={() => navigate({ to: '/reviews' })}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-lg cursor-pointer hover:bg-surface-overlay transition-colors"
+                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm cursor-pointer hover:bg-surface-overlay transition-colors"
               >
                 <div>
                   <span className="text-sm text-text-primary">{item.title}</span>
@@ -128,7 +145,11 @@ function MemberDrillDown() {
         <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
           Project Assignments
         </h2>
-        <AssignToProjectForm memberId={id} projects={projects.data ?? []} onAssigned={() => assignments.refetch()} />
+        <AssignToProjectForm
+          memberId={id}
+          projects={projects.data ?? []}
+          onAssigned={() => assignments.refetch()}
+        />
         {assignments.isLoading ? (
           <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
         ) : (assignments.data?.length ?? 0) === 0 ? (
@@ -158,7 +179,10 @@ function MemberDrillDown() {
         ) : (evaluations.data?.items?.length ?? 0) === 0 ? (
           <p className="text-sm text-text-tertiary">
             No evaluations yet. Create one in{' '}
-            <button onClick={() => navigate({ to: '/evaluations' })} className="text-accent hover:text-accent-hover">
+            <button
+              onClick={() => navigate({ to: '/evaluations' })}
+              className="text-accent-text hover:text-accent-hover"
+            >
               Evaluations
             </button>
             .
@@ -168,10 +192,12 @@ function MemberDrillDown() {
             {evaluations.data!.items.map((ev) => (
               <div
                 key={ev.id}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-lg"
+                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
               >
                 <div>
-                  <span className="text-sm text-text-primary">{ev.description || 'No description'}</span>
+                  <span className="text-sm text-text-primary">
+                    {ev.description || 'No description'}
+                  </span>
                   <span className="ml-2 text-xs text-text-tertiary">{ev.date}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -254,7 +280,7 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
         <button
           onClick={handleAdd}
           disabled={!value.trim() || addIdentity.isPending}
-          className="px-4 py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
         >
           Add
         </button>
@@ -264,13 +290,15 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
       {identities.isLoading ? (
         <div className="h-10 bg-surface-raised border border-border rounded animate-pulse" />
       ) : (identities.data?.length ?? 0) === 0 ? (
-        <p className="text-sm text-text-tertiary">No identities mapped. Add GitHub, GitLab, or email mappings above.</p>
+        <p className="text-sm text-text-tertiary">
+          No identities mapped. Add GitHub, GitLab, or email mappings above.
+        </p>
       ) : (
         <div className="space-y-2">
           {identities.data!.map((identity) => (
             <div
               key={identity.id}
-              className="flex items-center justify-between px-4 py-2 bg-surface-raised border border-border rounded-lg"
+              className="flex items-center justify-between px-4 py-2 bg-surface-raised border border-border rounded-sm"
             >
               <div className="flex items-center gap-2">
                 <span className="text-xs px-1.5 py-0.5 rounded bg-surface-overlay text-text-secondary font-medium">
@@ -326,7 +354,7 @@ function AssignToProjectForm({
   }
 
   return (
-    <div className="bg-surface-raised border border-border rounded-lg p-4 mb-4">
+    <div className="bg-surface-raised border border-border rounded-sm p-4 mb-4">
       <h3 className="text-sm font-medium text-text-primary mb-3">Assign to Project</h3>
       <div className="flex flex-wrap gap-2">
         <select
@@ -356,7 +384,7 @@ function AssignToProjectForm({
         <button
           onClick={handleAssign}
           disabled={!projectId || !startDate || createAssignment.isPending}
-          className="px-4 py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
         >
           Assign
         </button>
@@ -371,7 +399,13 @@ function AssignmentRow({
   onNavigate,
   onEnded,
 }: {
-  assignment: { id: string; projectId: string; role: string | null; startDate: string; endDate: string | null };
+  assignment: {
+    id: string;
+    projectId: string;
+    role: string | null;
+    startDate: string;
+    endDate: string | null;
+  };
   projectName: string;
   onNavigate: () => void;
   onEnded: () => void;
@@ -397,16 +431,20 @@ function AssignmentRow({
   return (
     <div
       onClick={onNavigate}
-      className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-lg cursor-pointer hover:bg-surface-overlay transition-colors"
+      className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm cursor-pointer hover:bg-surface-overlay transition-colors"
     >
       <div>
-        <span className="text-sm text-accent hover:text-accent-hover">{projectName}</span>
-        {assignment.role && <span className="ml-2 text-xs text-text-tertiary">{assignment.role}</span>}
+        <span className="text-sm text-accent-text hover:text-accent-hover">{projectName}</span>
+        {assignment.role && (
+          <span className="ml-2 text-xs text-text-tertiary">{assignment.role}</span>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <span className="text-xs text-text-tertiary">
           {format(new Date(assignment.startDate), 'MMM d, yyyy')}
-          {assignment.endDate ? ` - ${format(new Date(assignment.endDate), 'MMM d, yyyy')}` : ' - present'}
+          {assignment.endDate
+            ? ` - ${format(new Date(assignment.endDate), 'MMM d, yyyy')}`
+            : ' - present'}
         </span>
         {isActive && (
           <button
@@ -421,9 +459,3 @@ function AssignmentRow({
     </div>
   );
 }
-
-export const memberIdRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/members/$id',
-  component: MemberDrillDown,
-});

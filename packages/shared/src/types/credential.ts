@@ -1,7 +1,7 @@
 export interface GitCredential {
   id: string;
   name: string;
-  platform: 'github' | 'gitlab';
+  platform: 'github' | 'gitlab' | 'bitbucket' | 'gitea';
   tokenEncrypted: string;
   instanceUrl: string | null;
   createdAt: string;

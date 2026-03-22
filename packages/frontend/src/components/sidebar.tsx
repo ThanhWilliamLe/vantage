@@ -1,6 +1,6 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useUIStore } from '../stores/ui-store.js';
-import { usePendingQueue } from '../hooks/use-api.js';
+import { usePendingQueue } from '../hooks/api/core.js';
 
 interface NavItem {
   label: string;
@@ -54,10 +54,7 @@ export function Sidebar() {
   }
 
   function renderItem(item: NavItem) {
-    const isActive =
-      item.to === '/'
-        ? currentPath === '/'
-        : currentPath.startsWith(item.to);
+    const isActive = item.to === '/' ? currentPath === '/' : currentPath.startsWith(item.to);
     const badge = getBadge(item);
     return (
       <button
@@ -65,7 +62,7 @@ export function Sidebar() {
         onClick={() => navigate({ to: item.to as '/' })}
         className={`flex items-center gap-2 px-3 py-2 mx-1 rounded text-sm transition-colors w-full text-left ${
           isActive
-            ? 'bg-surface-raised text-accent'
+            ? 'bg-surface-raised text-accent-text'
             : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised'
         }`}
       >

@@ -14,6 +14,16 @@ const defaultResponses: Record<string, unknown> = {
   '/api/projects': [],
   '/api/members': [],
   '/api/evaluations': { items: [], total: 0, limit: 20, offset: 0 },
+  '/api/workload/charts/bar': { startDate: '', endDate: '', data: [] },
+  '/api/workload/charts/trend': { startDate: '', endDate: '', data: [] },
+  '/api/workload/charts/heatmap': {
+    startDate: '',
+    endDate: '',
+    members: [],
+    projects: [],
+    cells: [],
+    maxCommits: 0,
+  },
   '/api/workload': { startDate: '', endDate: '', byMember: [], byProject: [] },
   '/api/ai/status': { total: 0, completed: 0, failed: 0, processing: false },
   '/api/credentials': [],
@@ -102,7 +112,16 @@ describe('Dashboard view', () => {
   it('shows stat cards when data is present', async () => {
     vi.restoreAllMocks();
     setupFetchMock({
-      '/api/projects': [{ id: '1', name: 'TestProject', status: 'active', description: null, createdAt: '', updatedAt: '' }],
+      '/api/projects': [
+        {
+          id: '1',
+          name: 'TestProject',
+          status: 'active',
+          description: null,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
       '/api/members': [{ id: '1', name: 'Alice', status: 'active', createdAt: '', updatedAt: '' }],
     });
 
@@ -298,7 +317,10 @@ describe('Error handling', () => {
       if (url.includes('/api/code-changes')) {
         return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500 });
       }
-      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     });
 
     renderApp('/reviews');
@@ -313,7 +335,10 @@ describe('Error handling', () => {
       if (url.includes('/api/members')) {
         return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500 });
       }
-      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     });
 
     renderApp('/members');

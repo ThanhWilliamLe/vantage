@@ -1,8 +1,7 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { rootRoute } from '../__root.js';
-import { useProjects } from '../../hooks/use-api.js';
+import { useNavigate } from '@tanstack/react-router';
+import { useProjects } from '../../hooks/api/core.js';
 
-function ProjectsList() {
+export function Projects() {
   const navigate = useNavigate();
   const projects = useProjects();
 
@@ -12,7 +11,10 @@ function ProjectsList() {
         <h1 className="text-xl font-semibold text-text-primary">Projects</h1>
         <div className="mt-4 space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 bg-surface-raised border border-border rounded animate-pulse" />
+            <div
+              key={i}
+              className="h-12 bg-surface-raised border border-border rounded animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -37,11 +39,13 @@ function ProjectsList() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-text-primary">Projects</h1>
-          <p className="text-sm text-text-secondary mt-0.5">Configured projects and their repositories</p>
+          <p className="text-sm text-text-secondary mt-0.5">
+            Configured projects and their repositories
+          </p>
         </div>
         <button
           onClick={() => navigate({ to: '/settings', search: { tab: 'projects' } })}
-          className="text-sm text-accent hover:text-accent-hover"
+          className="text-sm text-accent-text hover:text-accent-hover"
         >
           Manage in Settings
         </button>
@@ -52,7 +56,10 @@ function ProjectsList() {
           <p className="text-text-secondary">No projects configured yet.</p>
           <p className="text-sm text-text-tertiary mt-1">
             Add projects in{' '}
-            <button onClick={() => navigate({ to: '/settings', search: { tab: 'projects' } })} className="text-accent hover:text-accent-hover">
+            <button
+              onClick={() => navigate({ to: '/settings', search: { tab: 'projects' } })}
+              className="text-accent-text hover:text-accent-hover"
+            >
               Settings
             </button>{' '}
             to begin tracking code changes and reviews.
@@ -96,7 +103,7 @@ function ProjectsList() {
                     {new Date(project.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    <span className="text-xs text-accent hover:text-accent-hover">View</span>
+                    <span className="text-xs text-accent-text hover:text-accent-hover">View</span>
                   </td>
                 </tr>
               ))}
@@ -107,9 +114,3 @@ function ProjectsList() {
     </div>
   );
 }
-
-export const projectsIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/projects',
-  component: ProjectsList,
-});

@@ -31,9 +31,10 @@ describe('database (integration)', () => {
       'scan_state',
       'sync_state',
       'app_config',
+      'task_tracker_credential',
     ];
 
-    it('all 14 tables exist after migration', () => {
+    it('all 15 tables exist after migration', () => {
       const rows = sqlite
         .prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' ORDER BY name",
@@ -42,7 +43,7 @@ describe('database (integration)', () => {
 
       const tableNames = rows.map((r) => r.name).sort();
       expect(tableNames).toEqual(expectedTables.slice().sort());
-      expect(tableNames.length).toBe(14);
+      expect(tableNames.length).toBe(15);
     });
   });
 
@@ -63,9 +64,7 @@ describe('database (integration)', () => {
   describe('triggers', () => {
     it('6 FTS sync triggers exist', () => {
       const rows = sqlite
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name",
-        )
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
         .all() as Array<{ name: string }>;
 
       const triggerNames = rows.map((r) => r.name).sort();
@@ -83,9 +82,7 @@ describe('database (integration)', () => {
 
   describe('FTS5 rowid check', () => {
     it('SELECT rowid FROM code_change LIMIT 1 succeeds (returns empty before inserts)', () => {
-      const rows = sqlite
-        .prepare('SELECT rowid FROM code_change LIMIT 1')
-        .all();
+      const rows = sqlite.prepare('SELECT rowid FROM code_change LIMIT 1').all();
       expect(rows).toEqual([]);
     });
   });
@@ -118,9 +115,19 @@ describe('database (integration)', () => {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
-          id, 'proj-1', 'repo-1', 'commit', id,
-          title, body, 'author@example.com',
-          now, now, 'pending', now, now,
+          id,
+          'proj-1',
+          'repo-1',
+          'commit',
+          id,
+          title,
+          body,
+          'author@example.com',
+          now,
+          now,
+          'pending',
+          now,
+          now,
         );
     }
 
@@ -200,10 +207,16 @@ describe('database (integration)', () => {
 
     it('INSERT into evaluation_entry is found via FTS', () => {
       insertMember();
-      insertEvaluation('eval-1', 'Excellent performance in sprint review', 'Delivered features on time');
+      insertEvaluation(
+        'eval-1',
+        'Excellent performance in sprint review',
+        'Delivered features on time',
+      );
 
       const results = sqlite
-        .prepare("SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'performance'")
+        .prepare(
+          "SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'performance'",
+        )
         .all();
       expect(results.length).toBe(1);
     });
@@ -213,11 +226,15 @@ describe('database (integration)', () => {
       insertEvaluation('eval-2', 'Original evaluation', 'Original notes');
 
       sqlite
-        .prepare("UPDATE evaluation_entry SET description = 'Revised outstanding evaluation' WHERE id = ?")
+        .prepare(
+          "UPDATE evaluation_entry SET description = 'Revised outstanding evaluation' WHERE id = ?",
+        )
         .run('eval-2');
 
       const results = sqlite
-        .prepare("SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'outstanding'")
+        .prepare(
+          "SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'outstanding'",
+        )
         .all();
       expect(results.length).toBe(1);
     });
@@ -227,14 +244,18 @@ describe('database (integration)', () => {
       insertEvaluation('eval-3', 'Temporary evaluation', 'Temporary notes');
 
       let results = sqlite
-        .prepare("SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'Temporary'")
+        .prepare(
+          "SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'Temporary'",
+        )
         .all();
       expect(results.length).toBe(1);
 
       sqlite.prepare("DELETE FROM evaluation_entry WHERE id = 'eval-3'").run();
 
       results = sqlite
-        .prepare("SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'Temporary'")
+        .prepare(
+          "SELECT rowid FROM evaluation_entry_fts WHERE evaluation_entry_fts MATCH 'Temporary'",
+        )
         .all();
       expect(results.length).toBe(0);
     });
@@ -242,9 +263,10 @@ describe('database (integration)', () => {
 
   describe('app_config', () => {
     it('singleton row exists with correct defaults', () => {
-      const row = sqlite
-        .prepare('SELECT * FROM app_config WHERE id = ?')
-        .get('default') as Record<string, unknown>;
+      const row = sqlite.prepare('SELECT * FROM app_config WHERE id = ?').get('default') as Record<
+        string,
+        unknown
+      >;
 
       expect(row).toBeDefined();
       expect(row.id).toBe('default');
@@ -268,7 +290,12 @@ describe('database (integration)', () => {
       const mockSqlite = {
         pragma: (cmd: string) => {
           if (cmd === 'integrity_check') {
-            return [{ integrity_check: '*** in database main ***\nPage 3: btreeInitPage() returns error code 11' }];
+            return [
+              {
+                integrity_check:
+                  '*** in database main ***\nPage 3: btreeInitPage() returns error code 11',
+              },
+            ];
           }
           return [];
         },

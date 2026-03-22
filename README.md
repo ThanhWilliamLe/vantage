@@ -1,186 +1,144 @@
 # Vantage
 
-**Local-first code review and team evaluation tool for dev leads.**
+**A local-first review dashboard for dev leads who manage code across GitHub and GitLab.**
 
-Scan your local git repos, triage commits in a review queue, track team workload, and run AI-assisted evaluations — all from a single dashboard running on your machine. No cloud accounts required.
+![Vantage — Review queue showing pending code reviews with AI risk scores and age indicators](assets/screenshot-dashboard.png)
 
-[![CI](https://github.com/ThanhWilliamLe/vantage/actions/workflows/ci.yml/badge.svg)](https://github.com/ThanhWilliamLe/vantage/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+You're the sole reviewer across multiple projects and platforms. Things fall through the cracks. Your evaluations live in a spreadsheet, disconnected from the code activity that drives 80% of their content.
 
----
+**Vantage fixes this.** [Get started in 4 commands.](#quick-start)
 
-## Quick Start
+## What it does
+
+- **Unified review queue** — Every commit, PR, and MR across all your repos in one place. Nothing goes unreviewed.
+- **Smart triage** — AI-generated summaries, risk levels, and categories so you know what matters before opening a diff.
+- **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Your team member who commits as three different emails? One person, one view.
+- **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. You add the 20% that requires human observation.
+- **Workload visibility** — Charts showing who's doing what, across which projects, over time.
+- **Local-first** — Reads from your local `.git` directories. Your code and evaluations never leave your machine.
+
+> Vantage is not a task tracker, a CI/CD tool, or a team collaboration platform. It's a review dashboard and evaluation tool for the person who reviews the code.
+
+## Quick start
+
+**Requirements:** [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/installation), git
 
 ```bash
-# Prerequisites: Node.js 20+, pnpm, git
-
-# Clone and install
 git clone https://github.com/ThanhWilliamLe/vantage.git
 cd vantage
 pnpm install
-
-# Start (builds frontend + starts server)
-pnpm start
-
-# Open in your browser
-# http://127.0.0.1:3847
+pnpm build && pnpm start
 ```
 
-## First-Run Walkthrough
+Open [http://localhost:3847](http://localhost:3847). Add your repo paths in Settings → Projects, then scan.
 
-1. **Create a project** — Settings > Projects > give it a name
-2. **Add a repository** — Expand the project > add a local git repo path
-3. **Add team members** — Settings > Members > add names
-4. **Map identities** — Expand a member > map their git email to their profile
-5. **Scan** — Review Queue auto-populates with commits from your repos
-6. **Review** — Triage commits: review, flag for discussion, or defer
+![Vantage demo — adding a repo, scanning commits, reviewing with AI triage](assets/demo.gif)
+
+## See it in action
+
+### Review Queue
+Every code change across your projects. AI summaries tell you what changed at a glance. Risk badges flag what needs real attention.
+
+![Review queue with pending reviews, AI summaries, and risk badges](assets/screenshot-review-queue.png)
+
+### Workload Charts
+Commit volume by member and project. Spot imbalances before they become problems.
+
+![Workload charts showing commit distribution by member and project](assets/screenshot-workload.png)
 
 ## Features
 
-### Review Queue
-Scan local git repos and see all pending commits in one place. Select an item to view the full diff, AI summary, and linked tasks. Review, flag, or defer items individually or in batch.
+### Nothing slips through
+- Cross-platform review queue — GitHub, GitLab, and also [Bitbucket and Gitea](https://github.com/ThanhWilliamLe/vantage)
+- Commit-level and PR/MR-level review units — review the way you actually review
+- Age tracking — stale items surface, nothing hides
+- Multi-branch awareness — see work across all branches, not just main
+- Review workflow: pending → reviewed / flagged → communicated → resolved
 
-### Identity Resolution
-Map git emails and platform usernames (GitHub, GitLab) to team members. Commits automatically attribute to the right person across all views.
+### Focus on what matters
+- AI summaries, categories, and risk levels auto-generated on scan (Tier 1)
+- On-demand deep analysis with repo context — reads your source files (Tier 2)
+- Task cross-referencing — regex-detected Jira/ClickUp IDs become clickable links
+- Optional task enrichment — connect Jira/ClickUp API to see task title, status, and assignee inline (requires API credentials)
+- Full-text search across all code changes and evaluations
 
-### AI-Powered Analysis
-Connect any OpenAI/Anthropic-compatible API, or use a local CLI model (e.g. `claude -p`):
-- **Auto-summaries** — plain-language description of what changed and why
-- **Categorization** — bugfix, feature, refactor, config, docs, test
-- **Risk assessment** — low, medium, high based on change scope and complexity
-- **Deep analysis** — file-level findings with severity ratings
-- **Daily pre-fill** — AI drafts your daily check-up from git activity
-- **Quarterly synthesis** — AI summarizes a quarter into evaluation drafts with trend insights
+### Evaluations write themselves
+- Daily check-ups — AI pre-fills from that day's review activity
+- Quarterly reviews — AI synthesizes trends, patterns, and insights from months of data
+- Workload scoring with historical tracking
+- CSV export and historical data import from existing spreadsheets
 
-### GitHub & GitLab Sync
-Enrich local commits with PR/MR metadata — status (open, merged, closed, draft), review state, and line counts. Supports GitHub.com and self-hosted GitLab instances.
+### Your data stays yours
+- Runs on your machine — no cloud, no SaaS, no accounts
+- Reads from local `.git` directories
+- SQLite database — single file, easy to back up
+- Full backup and restore (JSON export/import)
+- API tokens encrypted at rest (AES-256-GCM)
+- Open source (Apache 2.0) — read every line
 
-### Evaluations
-- **Daily check-ups** — quick per-member notes with workload scores
-- **Quarterly evaluations** — period summaries with AI-generated insights
-- **CSV export** — export evaluations for spreadsheets or HR systems
+## How it works
 
-### More
-- **Dashboard** — pending count, flagged items, active projects, team members, workload trends
-- **Full-text search** — search across commits, AI summaries, review notes, and evaluations
-- **Workload view** — commit volume by member and project over configurable date ranges
-- **Command palette** — `Ctrl+K` or `/` to search members, projects, and navigate
-- **Keyboard shortcuts** — `j/k` to navigate the queue, `r` to review, `f` to flag, `d` to defer
+Vantage is a local web server (Fastify) serving a React frontend. It reads commits directly from your local git repos using `simple-git`. Optionally, connect platform API tokens to enrich commits with PR/MR metadata.
 
-## Configuration
+```
+Your local .git repos
+    ↓
+Vantage (localhost:3847)
+    ├── SQLite (your data)
+    ├── AI provider (optional — for triage + evaluation pre-fill)
+    ├── Git platform APIs (optional — for PR/MR metadata)
+    └── Task tracker APIs (optional — for Jira/ClickUp enrichment)
+```
 
-### AI Provider Setup
+No data leaves your machine unless you configure an external API connection.
 
-Go to **Settings > AI Provider** and choose one:
+## AI setup
 
-**Option A — API (OpenAI/Anthropic compatible):**
-| Field | Example |
-|-------|---------|
-| Name | My OpenAI |
-| Type | API |
-| Preset | openai or anthropic |
-| Endpoint | `https://api.openai.com/v1` |
-| API Key | `sk-...` |
-| Model | `gpt-4o` |
+Vantage works without AI — you get the review queue, workload charts, and evaluation log regardless. AI adds automatic triage and evaluation pre-fill.
 
-**Option B — CLI (zero credentials):**
-| Field | Example |
-|-------|---------|
-| Name | Claude CLI |
-| Type | CLI |
-| Command | `claude` |
-| I/O Method | stdin |
+**Supported providers:**
+- **Claude** (Anthropic) — API or CLI
+- **OpenAI** — API
+- **Any OpenAI-compatible API** — custom endpoint
 
-The CLI option works with any tool that reads a prompt from stdin and writes a response to stdout.
+Configure in Settings → AI Provider.
 
-### GitHub / GitLab Credentials
+## Tech stack
 
-Go to **Settings > Credentials** to add platform tokens:
-- **GitHub** — personal access token with `repo` scope
-- **GitLab** — personal access token with `read_api` scope (add instance URL for self-hosted)
+| Layer | Technology |
+|-------|-----------|
+| Backend | Fastify, TypeScript, Drizzle ORM |
+| Frontend | React 19, TanStack Router + Query, Tailwind CSS, Recharts |
+| Database | SQLite (better-sqlite3) |
+| Git | simple-git (reads local repos) |
+| AI | Anthropic/OpenAI API, or Claude CLI |
+| Monorepo | pnpm workspaces |
 
-Then add a GitHub/GitLab repository to your project alongside the local repo.
+## Contributing
 
-### Access Password
-
-Optional. Go to **Settings > Access Password** to set a password gate. The server runs on `127.0.0.1` only, so this is mainly for shared workstations.
-
-## Data Storage
-
-All data stays on your machine:
-
-| Platform | Location |
-|----------|----------|
-| Windows  | `%APPDATA%\Vantage\` |
-| macOS    | `~/Library/Application Support/vantage/` |
-| Linux    | `~/.local/share/vantage/` |
-
-Contains: `vantage.db` (SQLite), `keyfile` (AES-256-GCM encryption key for API tokens), `logs/`.
-
-## Security
-
-- Server binds to `127.0.0.1` only — not accessible from the network
-- API tokens encrypted at rest with AES-256-GCM
-- Optional access password (bcrypt hashed)
-- No telemetry, no cloud services, no data leaves your machine unless you configure an AI provider
-
-## Development
+Contributions welcome. Please open an issue first to discuss what you'd like to change.
 
 ```bash
-# Backend only (API on :3847)
-pnpm dev
+# Development (two terminals)
+pnpm dev              # Backend (watch mode)
+pnpm dev:frontend     # Frontend (Vite dev server with HMR)
 
-# Frontend dev server (HMR on :5173, proxies API to :3847)
-pnpm dev:frontend
+# Or: stable backend without watch (recommended on Windows)
+pnpm --filter @twle/vantage-backend dev:stable
 
-# Run all tests (400 backend + 36 frontend unit/integration)
-pnpm test
+# Testing
+pnpm test             # All tests (596 across backend + frontend)
+pnpm test:e2e         # Playwright E2E tests
 
-# Run E2E tests (44 Playwright tests across 9 journeys)
-pnpm test:e2e
-
-# Type check
-pnpm typecheck
-
-# Lint
-pnpm lint
-
-# Coverage
-pnpm test:coverage
+# Quality
+pnpm typecheck        # TypeScript check
+pnpm lint             # ESLint
 ```
-
-## Project Structure
-
-```
-packages/
-  shared/       # TypeScript types, constants, status transitions
-  backend/      # Fastify API server + SQLite database
-    src/
-      data/           # Drizzle ORM schema, migrations, test helpers
-      crypto/         # AES-256-GCM encryption, bcrypt, keyfile management
-      errors/         # Typed error hierarchy (7 classes)
-      services/       # Business logic (project, member, scan, review, AI, etc.)
-      integrations/   # Git CLI, GitHub API, GitLab API, AI providers
-      routes/         # Fastify route handlers + integration tests
-      plugins/        # Auth middleware
-  frontend/     # React SPA (Vite + TanStack Router)
-    src/
-      routes/         # 10 views (dashboard, reviews, members, etc.)
-      components/     # Sidebar, command palette, error banner, login gate
-      hooks/          # TanStack Query API hooks
-      stores/         # zustand (auth, UI state)
-    e2e/              # Playwright E2E tests (9 journeys, 44 tests)
-```
-
-## Tech Stack
-
-TypeScript, Fastify, SQLite (better-sqlite3 + Drizzle ORM), React 19, Vite, TanStack Router/Query, Tailwind CSS v4, simple-git, Playwright.
-
-## Authors
-
-Created by **[Thanh Le](https://github.com/ThanhWilliamLe)** and **[Claude](https://claude.ai)** (Anthropic).
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[Apache 2.0](LICENSE)
+
+---
+
+Built for dev leads who review code across platforms. [Star the repo](https://github.com/ThanhWilliamLe/vantage) if this solves a problem you have.

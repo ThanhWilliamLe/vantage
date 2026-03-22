@@ -5,10 +5,14 @@ import { CredentialService } from './credential-service.js';
 import { MemberService } from './member-service.js';
 import { GitHubAdapter } from '../integrations/github/github-adapter.js';
 import { GitLabAdapter } from '../integrations/gitlab/gitlab-adapter.js';
+import { BitbucketAdapter } from '../integrations/bitbucket/bitbucket-adapter.js';
+import { GiteaAdapter } from '../integrations/gitea/gitea-adapter.js';
 import { ExternalAPIError } from '../errors/index.js';
 import type { DrizzleDB } from '../data/db.js';
 import type { PRDetailMetadata } from '../integrations/github/types.js';
 import type { MRDetailMetadata } from '../integrations/gitlab/types.js';
+import type { BitbucketPRDetailMetadata } from '../integrations/bitbucket/types.js';
+import type { GiteaPRDetailMetadata } from '../integrations/gitea/types.js';
 
 // ─── Types ──────────────────────────────────────
 
@@ -51,13 +55,104 @@ export interface PlatformAdapter {
 }
 
 export interface GitHubAdapterInterface {
-  fetchPRsSince(owner: string, repo: string, since?: string): Promise<Array<{ number: number; title: string; body: string | null; state: string; draft: boolean; merged: boolean; headBranch: string; authorLogin: string; linesAdded: number; linesDeleted: number; filesChanged: number; createdAt: string; updatedAt: string; mergedAt: string | null }>>;
+  fetchPRsSince(
+    owner: string,
+    repo: string,
+    since?: string,
+  ): Promise<
+    Array<{
+      number: number;
+      title: string;
+      body: string | null;
+      state: string;
+      draft: boolean;
+      merged: boolean;
+      headBranch: string;
+      authorLogin: string;
+      linesAdded: number;
+      linesDeleted: number;
+      filesChanged: number;
+      createdAt: string;
+      updatedAt: string;
+      mergedAt: string | null;
+    }>
+  >;
   fetchPRDetail(owner: string, repo: string, number: number): Promise<PRDetailMetadata>;
 }
 
 export interface GitLabAdapterInterface {
-  fetchMRsSince(projectId: string, since?: string): Promise<Array<{ iid: number; title: string; description: string | null; state: string; draft: boolean; sourceBranch: string; authorUsername: string; linesAdded: number; linesDeleted: number; filesChanged: number; createdAt: string; updatedAt: string; mergedAt: string | null }>>;
+  fetchMRsSince(
+    projectId: string,
+    since?: string,
+  ): Promise<
+    Array<{
+      iid: number;
+      title: string;
+      description: string | null;
+      state: string;
+      draft: boolean;
+      sourceBranch: string;
+      authorUsername: string;
+      linesAdded: number;
+      linesDeleted: number;
+      filesChanged: number;
+      createdAt: string;
+      updatedAt: string;
+      mergedAt: string | null;
+    }>
+  >;
   fetchMRDetail(projectId: string, iid: number): Promise<MRDetailMetadata>;
+}
+
+export interface BitbucketAdapterInterface {
+  fetchPRsSince(
+    workspace: string,
+    repo: string,
+    since?: string,
+  ): Promise<
+    Array<{
+      id: number;
+      title: string;
+      description: string | null;
+      state: string;
+      draft: boolean;
+      headBranch: string;
+      authorLogin: string;
+      linesAdded: number;
+      linesDeleted: number;
+      filesChanged: number;
+      createdAt: string;
+      updatedAt: string;
+      mergedAt: string | null;
+    }>
+  >;
+  fetchPRDetail(workspace: string, repo: string, id: number): Promise<BitbucketPRDetailMetadata>;
+}
+
+export interface GiteaAdapterInterface {
+  fetchPRsSince(
+    owner: string,
+    repo: string,
+    since?: string,
+  ): Promise<
+    Array<{
+      number: number;
+      title: string;
+      body: string | null;
+      state: string;
+      draft: boolean;
+      merged: boolean;
+      headBranch: string;
+      authorLogin: string;
+      linesAdded: number;
+      linesDeleted: number;
+      filesChanged: number;
+      createdAt: string;
+      updatedAt: string;
+      mergedAt: string | null;
+    }>
+  >;
+  fetchPRDetail(owner: string, repo: string, number: number): Promise<GiteaPRDetailMetadata>;
 }
 
 // ─── Adapter factory (overridable for tests) ────
@@ -65,6 +160,8 @@ export interface GitLabAdapterInterface {
 export type AdapterFactory = {
   createGitHub(token: string): GitHubAdapterInterface;
   createGitLab(token: string, instanceUrl?: string): GitLabAdapterInterface;
+  createBitbucket(token: string): BitbucketAdapterInterface;
+  createGitea(token: string, instanceUrl: string): GiteaAdapterInterface;
 };
 
 const defaultAdapterFactory: AdapterFactory = {
@@ -73,6 +170,12 @@ const defaultAdapterFactory: AdapterFactory = {
   },
   createGitLab(token: string, instanceUrl?: string) {
     return new GitLabAdapter(token, instanceUrl);
+  },
+  createBitbucket(token: string) {
+    return new BitbucketAdapter(token);
+  },
+  createGitea(token: string, instanceUrl: string) {
+    return new GiteaAdapter(token, instanceUrl);
   },
 };
 
@@ -89,14 +192,16 @@ export const SyncService = {
     key: Buffer,
     adapterFactory: AdapterFactory = defaultAdapterFactory,
   ): Promise<SyncBatchResult> {
-    const repos = await db
-      .select()
-      .from(schema.repository)
-      .all();
+    const repos = await db.select().from(schema.repository).all();
 
     // Filter to repos with API platform types and credentials
     const apiRepos = repos.filter(
-      (r) => (r.type === 'github' || r.type === 'gitlab') && r.credentialId,
+      (r) =>
+        (r.type === 'github' ||
+          r.type === 'gitlab' ||
+          r.type === 'bitbucket' ||
+          r.type === 'gitea') &&
+        r.credentialId,
     );
 
     const result: SyncBatchResult = {
@@ -218,6 +323,24 @@ export const SyncService = {
         const instanceUrl = credential?.instanceUrl ?? undefined;
         const adapter = adapterFactory.createGitLab(token, instanceUrl);
         const result = await syncGitLab(db, adapter, repo, cursor);
+        newItems = result.newItems;
+        updatedItems = result.updatedItems;
+        latestUpdatedAt = result.latestUpdatedAt;
+      } else if (repo.type === 'bitbucket') {
+        const adapter = adapterFactory.createBitbucket(token);
+        const result = await syncBitbucket(db, adapter, repo, cursor);
+        newItems = result.newItems;
+        updatedItems = result.updatedItems;
+        latestUpdatedAt = result.latestUpdatedAt;
+      } else if (repo.type === 'gitea') {
+        const credential = await db
+          .select()
+          .from(schema.gitCredential)
+          .where(eq(schema.gitCredential.id, repo.credentialId))
+          .get();
+        const instanceUrl = credential?.instanceUrl ?? '';
+        const adapter = adapterFactory.createGitea(token, instanceUrl);
+        const result = await syncGitea(db, adapter, repo, cursor);
         newItems = result.newItems;
         updatedItems = result.updatedItems;
         latestUpdatedAt = result.latestUpdatedAt;
@@ -364,6 +487,104 @@ async function syncGitLab(
   return { newItems, updatedItems, latestUpdatedAt };
 }
 
+// ─── Bitbucket sync logic ────────────────────────
+
+async function syncBitbucket(
+  db: DrizzleDB,
+  adapter: BitbucketAdapterInterface,
+  repo: RepoRow,
+  cursor?: string,
+): Promise<{ newItems: number; updatedItems: number; latestUpdatedAt?: string }> {
+  if (!repo.apiOwner || !repo.apiRepo) {
+    throw new Error('Bitbucket repository missing apiOwner (workspace) or apiRepo');
+  }
+
+  const prs = await adapter.fetchPRsSince(repo.apiOwner, repo.apiRepo, cursor);
+
+  let newItems = 0;
+  let updatedItems = 0;
+  let latestUpdatedAt: string | undefined;
+
+  for (const pr of prs) {
+    const detail = await adapter.fetchPRDetail(repo.apiOwner, repo.apiRepo, pr.id);
+
+    const matchResult = await matchPRToCodeChanges(db, repo, {
+      type: 'pr',
+      platformId: String(detail.id),
+      title: detail.title,
+      body: detail.description,
+      branch: detail.headBranch,
+      authorRaw: detail.authorLogin,
+      authorName: detail.authorLogin,
+      linesAdded: detail.linesAdded,
+      linesDeleted: detail.linesDeleted,
+      filesChanged: detail.filesChanged,
+      authoredAt: detail.createdAt,
+      prStatus: deriveBitbucketPRStatus(detail.state),
+      commitSHAs: detail.commitSHAs,
+      createdAt: detail.createdAt,
+    });
+
+    if (matchResult === 'created') newItems++;
+    if (matchResult === 'updated') updatedItems++;
+
+    if (!latestUpdatedAt || pr.updatedAt > latestUpdatedAt) {
+      latestUpdatedAt = pr.updatedAt;
+    }
+  }
+
+  return { newItems, updatedItems, latestUpdatedAt };
+}
+
+// ─── Gitea sync logic ───────────────────────────
+
+async function syncGitea(
+  db: DrizzleDB,
+  adapter: GiteaAdapterInterface,
+  repo: RepoRow,
+  cursor?: string,
+): Promise<{ newItems: number; updatedItems: number; latestUpdatedAt?: string }> {
+  if (!repo.apiOwner || !repo.apiRepo) {
+    throw new Error('Gitea repository missing apiOwner or apiRepo');
+  }
+
+  const prs = await adapter.fetchPRsSince(repo.apiOwner, repo.apiRepo, cursor);
+
+  let newItems = 0;
+  let updatedItems = 0;
+  let latestUpdatedAt: string | undefined;
+
+  for (const pr of prs) {
+    const detail = await adapter.fetchPRDetail(repo.apiOwner, repo.apiRepo, pr.number);
+
+    const matchResult = await matchPRToCodeChanges(db, repo, {
+      type: 'pr',
+      platformId: String(detail.number),
+      title: detail.title,
+      body: detail.body,
+      branch: detail.headBranch,
+      authorRaw: detail.authorLogin,
+      authorName: detail.authorLogin,
+      linesAdded: detail.linesAdded,
+      linesDeleted: detail.linesDeleted,
+      filesChanged: detail.filesChanged,
+      authoredAt: detail.createdAt,
+      prStatus: derivePRStatus(detail.state, detail.merged, detail.draft),
+      commitSHAs: detail.commitSHAs,
+      createdAt: detail.createdAt,
+    });
+
+    if (matchResult === 'created') newItems++;
+    if (matchResult === 'updated') updatedItems++;
+
+    if (!latestUpdatedAt || pr.updatedAt > latestUpdatedAt) {
+      latestUpdatedAt = pr.updatedAt;
+    }
+  }
+
+  return { newItems, updatedItems, latestUpdatedAt };
+}
+
 // ─── Four-tier matching algorithm ───────────────
 
 interface MatchInput {
@@ -477,7 +698,7 @@ async function createCodeChange(
   input: MatchInput,
   now: string,
 ): Promise<void> {
-  const memberId = await resolveAuthorMember(db, input.type === 'pr' ? 'github' : 'gitlab', input.authorRaw);
+  const memberId = await resolveAuthorMember(db, repo.type, input.authorRaw);
 
   const id = ulid();
   await db.insert(schema.codeChange).values({
@@ -527,5 +748,12 @@ function deriveMRStatus(state: string, draft: boolean): string {
   if (state === 'merged') return 'merged';
   if (state === 'closed') return 'closed';
   if (state === 'locked') return 'locked';
+  return 'open';
+}
+
+function deriveBitbucketPRStatus(state: string): string {
+  // Bitbucket states: OPEN, MERGED, DECLINED, SUPERSEDED
+  if (state === 'MERGED') return 'merged';
+  if (state === 'DECLINED' || state === 'SUPERSEDED') return 'closed';
   return 'open';
 }

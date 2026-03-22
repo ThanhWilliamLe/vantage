@@ -8,3 +8,4 @@ dist/
 *.db.bak
 coverage/
 .turbo/
+npm-dist/

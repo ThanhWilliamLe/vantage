@@ -120,7 +120,7 @@ test.describe.serial('Member Drilldown Journey', () => {
 
     // Now click the project name in the assignment row (it's a span inside a clickable div)
     const mainContent = page.locator('main');
-    const projectLink = mainContent.locator('span.text-accent', { hasText: projectName });
+    const projectLink = mainContent.locator('span.text-accent-text', { hasText: projectName });
     await expect(projectLink).toBeVisible({ timeout: 10_000 });
     await projectLink.click();
 

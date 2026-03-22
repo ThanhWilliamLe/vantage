@@ -1,18 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #101014;
-  --color-surface: #16161c;
-  --color-surface-raised: #1c1c24;
-  --color-surface-overlay: #22222c;
-  --color-border: #2a2a36;
-  --color-border-subtle: #1f1f2a;
-  --color-text-primary: #e8e8ef;
-  --color-text-secondary: #9898a8;
-  --color-text-tertiary: #9090a0;
-  --color-accent: #6c8cff;
-  --color-accent-hover: #8aa4ff;
-  --color-danger: #dc3545;
-  --color-success: #4ccc6c;
-  --color-warning: #ffb84c;
+  --color-base: #18181B;
+  --color-surface: #1F1F23;
+  --color-surface-raised: #27272B;
+  --color-surface-overlay: #303035;
+  --color-border: #2E2E33;
+  --color-border-subtle: #27272B;
+  --color-text-primary: #ECECEF;
+  --color-text-secondary: #A1A1A8;
+  --color-text-tertiary: #929298;
+  --color-accent: #3D7068;
+  --color-accent-hover: #4A8A80;
+  --color-accent-text: #5FBFB2;
+  --color-info: #6889A8;
+  --color-danger: #B84A4A;
+  --color-success: #5B8A5E;
+  --color-warning: #C4922A;
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Nunito', sans-serif;
 }
+
+/* Canopy Design System */
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-raised); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-surface-overlay); }

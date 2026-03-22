@@ -1,7 +1,51 @@
+import { stat, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import simpleGit from 'simple-git';
 import { GitError } from '../../errors/git.js';
 import { parseCommitLogOutput } from './parser.js';
 import type { RawCommit, DiffStats } from './types.js';
+
+/**
+ * Check if a repository path is a git worktree (as opposed to a normal repo).
+ * Worktrees have a `.git` file (not directory) containing a gitdir pointer.
+ */
+export async function isWorktree(repoPath: string): Promise<boolean> {
+  try {
+    const gitPath = join(repoPath, '.git');
+    const s = await stat(gitPath);
+    return s.isFile(); // file = worktree, directory = normal repo
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * If the path is a worktree, resolve the main repo's .git directory.
+ * Otherwise returns null.
+ */
+export async function getMainGitDir(repoPath: string): Promise<string | null> {
+  try {
+    const gitPath = join(repoPath, '.git');
+    const s = await stat(gitPath);
+    if (!s.isFile()) return null;
+
+    const content = await readFile(gitPath, 'utf-8');
+    const match = content.match(/^gitdir:\s*(.+)$/m);
+    if (!match) return null;
+
+    // The gitdir points to .git/worktrees/<name>, resolve to main .git
+    const worktreeGitDir = match[1].trim();
+    // Navigate up from .git/worktrees/<name> to .git
+    const parts = worktreeGitDir.replace(/\\/g, '/').split('/');
+    const worktreesIdx = parts.lastIndexOf('worktrees');
+    if (worktreesIdx >= 1) {
+      return parts.slice(0, worktreesIdx).join('/');
+    }
+    return worktreeGitDir;
+  } catch {
+    return null;
+  }
+}
 
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf899d15363d7c354';
 const MAX_DIFF_SIZE = 512_000; // 500 KB

@@ -32,7 +32,7 @@ export function LoginGate({ children }: LoginGateProps) {
 
   return (
     <div data-testid="login-gate" className="flex items-center justify-center h-screen bg-base">
-      <div className="w-full max-w-sm p-6 bg-surface border border-border rounded-lg">
+      <div className="w-full max-w-sm p-6 bg-surface border border-border rounded-sm">
         <h1 className="text-lg font-semibold text-text-primary mb-1">Vantage</h1>
         <p className="text-sm text-text-secondary mb-6">Enter the access password to continue.</p>
         <form onSubmit={handleSubmit}>
@@ -48,7 +48,7 @@ export function LoginGate({ children }: LoginGateProps) {
           <button
             type="submit"
             disabled={loading || !password}
-            className="mt-4 w-full py-2 bg-accent text-white text-sm rounded hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="mt-4 w-full py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

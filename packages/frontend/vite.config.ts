@@ -7,6 +7,17 @@ export default defineConfig({
   server: {
     proxy: { '/api': 'http://localhost:3847' },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'tanstack': ['@tanstack/react-query', '@tanstack/react-router'],
+          'charts': ['recharts'],
+          'utils': ['date-fns', 'cmdk'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
