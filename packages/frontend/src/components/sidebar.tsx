@@ -54,7 +54,10 @@ export function Sidebar() {
   }
 
   function renderItem(item: NavItem) {
-    const isActive = item.to === '/' ? currentPath === '/' : currentPath.startsWith(item.to);
+    const isActive =
+      item.to === '/'
+        ? currentPath === '/'
+        : currentPath === item.to || currentPath.startsWith(item.to + '/');
     const badge = getBadge(item);
     return (
       <button

@@ -11,17 +11,19 @@ You're the person responsible for code reviews — whether that's one large proj
 ## What it does
 
 - **Unified review queue** — Every commit, PR, and MR in one place — whether you manage one repo or twenty. Nothing goes unreviewed.
-- **Smart triage** — AI-generated summaries, risk levels, and categories. Even when you know the codebase, it catches the commit you'd have skimmed past at 5pm on Friday.
-- **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Auto-suggests matches using heuristics. Your team member who commits as three different emails? One person, one view.
-- **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. You already know what happened — Vantage saves you the time of writing it up.
+- **Smart triage (optional)** — AI-generated summaries, risk levels, and categories. Flags a public API change buried in a 400-line refactor, or a new query missing parameterized inputs.
+- **Identity resolution** — Maps GitHub usernames, GitLab handles, and commit emails to real people. Matches are suggested based on name and email similarity; you confirm each before it takes effect. Your team member who commits as three different emails? One person, one view.
+- **Evaluations from review activity** — Daily check-ups and quarterly reviews, pre-filled by AI from your accumulated reviews. Generate drafts for your entire team in one pass — you add the 20% that requires human observation.
 - **Workload visibility** — Charts showing who's doing what, across which projects, over time.
 - **Local-first** — Reads from your local `.git` directories. Your code and evaluations never leave your machine.
 
-> Vantage is not a task tracker, a CI/CD tool, or a team collaboration platform. It's a review dashboard and evaluation tool for the person who reviews the code.
+> Vantage is not a task tracker or a CI/CD tool — it's a review dashboard and evaluation tool for the person who reviews the code. (Task tracker integration surfaces Jira/ClickUp metadata alongside code changes, but Vantage doesn't manage tasks.)
 
 ## Quick start
 
-**Requirements:** [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/installation) (`npm install -g pnpm` if you don't have it), git
+**Requirements:** [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/installation) (`npm install -g pnpm` if you don't have it), git. Works on macOS, Linux, and Windows.
+
+> **Note:** pnpm is required — Vantage uses pnpm workspaces. `better-sqlite3` is a native module; if `pnpm install` fails, you may need C++ build tools ([Windows](https://visualstudio.microsoft.com/visual-cpp-build-tools/), macOS: `xcode-select --install`, Linux: `build-essential`).
 
 ```bash
 git clone https://github.com/ThanhWilliamLe/vantage.git
@@ -49,7 +51,7 @@ Commit volume by member and project. Spot imbalances before they become problems
 ## Features
 
 ### Nothing slips through
-- Cross-platform review queue — GitHub, GitLab, Bitbucket, and Gitea
+- Cross-platform review queue — GitHub, GitLab (including self-hosted), Bitbucket Cloud, and Gitea
 - Commit-level and PR/MR-level review units — review the way you actually review
 - Age tracking — stale items surface, nothing hides
 - Multi-branch awareness — see work across all branches, not just main
@@ -103,7 +105,15 @@ Vantage works without AI — you get the review queue, workload charts, and eval
 - **OpenAI** — API
 - **Any OpenAI-compatible API** — custom endpoint
 
-Configure in Settings → AI Provider.
+Configure in Settings → AI Provider. AI triage sends commit diffs and messages to your configured provider — no code is sent without AI enabled.
+
+## Updating
+
+```bash
+cd vantage && git pull && pnpm install && pnpm build && pnpm start
+```
+
+Your SQLite database and settings are preserved across updates.
 
 ## Tech stack
 
@@ -129,7 +139,7 @@ pnpm dev:frontend     # Frontend (Vite dev server with HMR)
 pnpm --filter @twle/vantage-backend dev:stable
 
 # Testing
-pnpm test             # All tests (596 across backend + frontend)
+pnpm test             # All tests (backend + frontend)
 pnpm test:e2e         # Playwright E2E tests
 
 # Quality
