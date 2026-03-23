@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { SyncButton } from '../../components/sync-button.js';
 import {
   usePendingQueue,
   useCodeChange,
@@ -314,7 +315,12 @@ export function ReviewQueue() {
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
 
       const currentIndex = items.findIndex((i) => i.id === selectedId);
       if (e.key === 'j' && currentIndex < items.length - 1) {
@@ -378,7 +384,10 @@ export function ReviewQueue() {
   if (pending.isLoading) {
     return (
       <div>
-        <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+          <SyncButton variant="compact" />
+        </div>
         <div className="mt-4 space-y-2">
           {[1, 2, 3].map((i) => (
             <div
@@ -394,7 +403,10 @@ export function ReviewQueue() {
   if (pending.isError) {
     return (
       <div>
-        <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+          <SyncButton variant="compact" />
+        </div>
         <div className="mt-4 p-4 bg-danger/10 border border-danger/20 rounded text-sm text-danger">
           Failed to load review queue. Please try again.
         </div>
@@ -405,7 +417,10 @@ export function ReviewQueue() {
   if (items.length === 0) {
     return (
       <div data-testid="review-queue-empty">
-        <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-text-primary">Review Queue</h1>
+          <SyncButton variant="compact" />
+        </div>
         <div className="mt-12 flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 rounded-full bg-success/10 border border-success/20 flex items-center justify-center text-success text-lg">
             ✓
@@ -437,6 +452,7 @@ export function ReviewQueue() {
             {pending.data?.total ?? 0} pending items
           </p>
         </div>
+        <SyncButton variant="compact" />
       </div>
 
       {aiStatus.data?.processing && (

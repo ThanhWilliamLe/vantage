@@ -10,7 +10,7 @@ export interface Project {
 export interface Repository {
   id: string;
   projectId: string;
-  type: 'local' | 'github' | 'gitlab';
+  type: 'local' | 'github' | 'gitlab' | 'bitbucket' | 'gitea';
   localPath: string | null;
   apiOwner: string | null;
   apiRepo: string | null;

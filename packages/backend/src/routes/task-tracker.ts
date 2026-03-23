@@ -40,6 +40,21 @@ export async function taskTrackerRoutes(app: FastifyInstance) {
     });
   });
 
+  // Update a credential
+  app.put('/api/task-tracker-credentials/:id', async (request) => {
+    const { id } = request.params as { id: string };
+    const { name, token, instanceUrl } = request.body as {
+      name?: string;
+      token?: string;
+      instanceUrl?: string;
+    };
+    return TaskTrackerService.updateCredential(app.db, app.encryptionKey, id, {
+      name,
+      token,
+      instanceUrl,
+    });
+  });
+
   // Delete a credential
   app.delete('/api/task-tracker-credentials/:id', async (request) => {
     const { id } = request.params as { id: string };

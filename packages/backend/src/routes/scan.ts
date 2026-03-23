@@ -5,7 +5,21 @@ import { ScanService } from '../services/scan-service.js';
 export async function scanRoutes(app: FastifyInstance) {
   // POST /api/scan — trigger a scan of all local repositories
   app.post('/api/scan', async (request, reply) => {
-    const result = await ScanService.scanAll(app.db);
+    const { projectId, repoId, since } = (request.body as Record<string, unknown>) ?? {};
+    if (since && isNaN(Date.parse(String(since)))) {
+      return reply
+        .status(400)
+        .send({ error: { code: 'INVALID_SINCE', message: 'since must be a valid ISO 8601 date' } });
+    }
+    const filters = {
+      ...(projectId ? { projectId: String(projectId) } : {}),
+      ...(repoId ? { repoId: String(repoId) } : {}),
+      ...(since ? { since: String(since) } : {}),
+    };
+    const result = await ScanService.scanAll(
+      app.db,
+      Object.keys(filters).length > 0 ? filters : undefined,
+    );
     return reply.status(200).send(result);
   });
 

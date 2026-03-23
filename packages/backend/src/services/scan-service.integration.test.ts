@@ -69,7 +69,7 @@ describe('ScanService', () => {
     expect(changes).toHaveLength(2);
 
     // Check one of the changes
-    const featureCommit = changes.find(c => c.title === 'Add feature PROJ-101');
+    const featureCommit = changes.find((c) => c.title === 'Add feature PROJ-101');
     expect(featureCommit).toBeDefined();
     expect(featureCommit!.type).toBe('commit');
     expect(featureCommit!.projectId).toBe(projectId);
@@ -77,7 +77,7 @@ describe('ScanService', () => {
     expect(featureCommit!.status).toBe('pending');
     expect(featureCommit!.linesAdded).toBeGreaterThanOrEqual(1);
 
-    const initialCommit = changes.find(c => c.title === 'Initial commit');
+    const initialCommit = changes.find((c) => c.title === 'Initial commit');
     expect(initialCommit).toBeDefined();
   });
 
@@ -219,5 +219,104 @@ describe('ScanService', () => {
       .all();
 
     expect(ftsResults.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('ScanService filters', () => {
+  let project2Id: string;
+  let repo2Id: string;
+  let repo2Path: string;
+
+  beforeAll(async () => {
+    const project2 = await ProjectService.create(db, { name: 'Scan Filter Project' });
+    project2Id = project2.id;
+
+    repo2Path = createTestRepo([
+      { message: 'Filter test commit', files: { 'filter.ts': 'export const f = 1;\n' } },
+    ]);
+
+    repo2Id = ulid();
+    await db.insert(schema.repository).values({
+      id: repo2Id,
+      projectId: project2Id,
+      type: 'local',
+      localPath: repo2Path,
+      createdAt: new Date().toISOString(),
+    });
+  });
+
+  it('scanAll with projectId scans only repos in that project', async () => {
+    const result = await ScanService.scanAll(db, { projectId: project2Id });
+    expect(result.results.every((r) => r.projectId === project2Id)).toBe(true);
+    expect(result.reposScanned).toBe(1);
+  });
+
+  it('scanAll with repoId scans only that repo', async () => {
+    // Reset scan_state for repo2 so it can be re-scanned
+    db.$client.prepare('DELETE FROM scan_state WHERE repo_id = ?').run(repo2Id);
+
+    const result = await ScanService.scanAll(db, { repoId: repo2Id });
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].repoId).toBe(repo2Id);
+  });
+
+  it('scanAll with no filters scans all local repos (existing behavior)', async () => {
+    const result = await ScanService.scanAll(db);
+    // Should include repos from both projects
+    expect(result.results.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('repoId for non-local repo returns empty results', async () => {
+    const apiRepoId = ulid();
+    await db.insert(schema.repository).values({
+      id: apiRepoId,
+      projectId: project2Id,
+      type: 'github',
+      apiOwner: 'test',
+      apiRepo: 'repo',
+      createdAt: new Date().toISOString(),
+    });
+
+    const result = await ScanService.scanAll(db, { repoId: apiRepoId });
+    expect(result.results).toHaveLength(0);
+  });
+
+  it('since filter on first scan limits commits by date', async () => {
+    // Create a fresh repo with commits at known dates
+    const sinceProject = await ProjectService.create(db, { name: 'Since Test' });
+    const sinceRepoPath = createTestRepo([
+      { message: 'Old commit', files: { 'old.ts': 'old\n' } },
+      { message: 'New commit', files: { 'new.ts': 'new\n' } },
+    ]);
+    const sinceRepoId = ulid();
+    await db.insert(schema.repository).values({
+      id: sinceRepoId,
+      projectId: sinceProject.id,
+      type: 'local',
+      localPath: sinceRepoPath,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Use a since date far in the future — should find 0 commits
+    const result = await ScanService.scanAll(db, { repoId: sinceRepoId, since: '2099-01-01' });
+    expect(result.results[0].newCommits).toBe(0);
+  });
+
+  it('failed repo resets to idle on retry', async () => {
+    // Manually set repo2 to failed state
+    db.$client
+      .prepare('UPDATE scan_state SET status = ?, error_message = ? WHERE repo_id = ?')
+      .run('failed', 'previous error', repo2Id);
+
+    const result = await ScanService.scanAll(db, { repoId: repo2Id });
+    expect(result.results[0].status).toBe('scanned');
+
+    // Verify scan_state is back to idle
+    const state = await db
+      .select()
+      .from(schema.scanState)
+      .where(eq(schema.scanState.repoId, repo2Id))
+      .get();
+    expect(state!.status).toBe('idle');
   });
 });

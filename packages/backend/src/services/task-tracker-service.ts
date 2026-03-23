@@ -67,6 +67,42 @@ export const TaskTrackerService = {
       .all();
   },
 
+  async updateCredential(
+    db: DrizzleDB,
+    key: Buffer,
+    id: string,
+    input: { name?: string; token?: string; instanceUrl?: string },
+  ) {
+    const existing = await db
+      .select()
+      .from(schema.taskTrackerCredential)
+      .where(eq(schema.taskTrackerCredential.id, id))
+      .get();
+    if (!existing) throw new NotFoundError('TaskTrackerCredential', id);
+
+    const now = new Date().toISOString();
+    const updates: Record<string, unknown> = { updatedAt: now };
+    if (input.name !== undefined) updates.name = input.name;
+    if (input.token !== undefined) updates.tokenEncrypted = encrypt(input.token, key);
+    if (input.instanceUrl !== undefined) updates.instanceUrl = input.instanceUrl || null;
+
+    await db
+      .update(schema.taskTrackerCredential)
+      .set(updates)
+      .where(eq(schema.taskTrackerCredential.id, id));
+
+    return {
+      id: existing.id,
+      projectId: existing.projectId,
+      name: input.name ?? existing.name,
+      platform: existing.platform,
+      instanceUrl:
+        input.instanceUrl !== undefined ? input.instanceUrl || null : existing.instanceUrl,
+      createdAt: existing.createdAt,
+      updatedAt: now,
+    };
+  },
+
   async deleteCredential(db: DrizzleDB, id: string) {
     const existing = await db
       .select()

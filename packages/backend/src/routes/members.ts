@@ -31,6 +31,12 @@ export async function memberRoutes(app: FastifyInstance) {
     return member;
   });
 
+  app.delete('/api/members/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await MemberService.delete(app.db, id);
+    return reply.status(204).send();
+  });
+
   app.post('/api/members/:id/identities', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { platform, value } = request.body as { platform?: string; value?: string };

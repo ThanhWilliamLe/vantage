@@ -292,8 +292,14 @@ export function Evaluations() {
     setEvalNotes(ev.notes ?? '');
   }
 
-  const memberMap = new Map(members.data?.map((m) => [m.id, m.name]) ?? []);
-  const projectMap = new Map(projects.data?.map((p) => [p.id, p.name]) ?? []);
+  const memberMap = useMemo(
+    () => new Map(members.data?.map((m) => [m.id, m.name]) ?? []),
+    [members.data],
+  );
+  const projectMap = useMemo(
+    () => new Map(projects.data?.map((p) => [p.id, p.name]) ?? []),
+    [projects.data],
+  );
 
   const logItemsRaw =
     searchQuery.length >= 2
@@ -306,20 +312,28 @@ export function Evaluations() {
     return true;
   });
 
+  // Sanitize CSV cell values to prevent formula injection in spreadsheet apps
+  function csvSafe(val: string): string {
+    const escaped = val.replace(/"/g, '""');
+    // Prefix formula-triggering characters with a tab to neutralize them
+    if (/^[=+\-@]/.test(escaped)) return `"\t${escaped}"`;
+    return `"${escaped}"`;
+  }
+
   function handleExportCsv() {
     const rows = [['Member', 'Type', 'Date', 'Description', 'Score', 'Notes'].join(',')];
     for (const ev of logItems) {
       const name = memberMap.get(ev.memberId) ?? ev.memberId;
-      const desc = (ev.description ?? '').replace(/"/g, '""');
-      const notes = (ev.notes ?? '').replace(/"/g, '""');
+      const desc = ev.description ?? '';
+      const notes = ev.notes ?? '';
       rows.push(
         [
-          `"${name}"`,
+          csvSafe(name),
           ev.type,
           ev.date,
-          `"${desc}"`,
+          csvSafe(desc),
           String(ev.workloadScore ?? ''),
-          `"${notes}"`,
+          csvSafe(notes),
         ].join(','),
       );
     }

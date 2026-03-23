@@ -12,9 +12,13 @@ import {
   useMemberIdentities,
   useAddIdentity,
   useRemoveIdentity,
+  useUpdateMember,
+  useDeleteMember,
 } from '../../hooks/api/settings.js';
+import { errorMessage } from '../../lib/api-client.js';
 import { format } from 'date-fns/format';
 import { useState } from 'react';
+import { SearchableSelect } from '../../components/searchable-select.js';
 import { toast } from 'sonner';
 
 export function MemberDetail() {
@@ -25,6 +29,10 @@ export function MemberDetail() {
   const pendingReviews = useCodeChanges({ memberId: id, status: 'pending' });
   const evaluations = useEvaluations({ memberId: id, limit: '10' });
   const projects = useProjects();
+  const updateMember = useUpdateMember();
+  const deleteMember = useDeleteMember();
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
 
   const projectMap = new Map(projects.data?.map((p) => [p.id, p.name]) ?? []);
 
@@ -67,23 +75,128 @@ export function MemberDetail() {
         &larr; Back to Members
       </button>
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-semibold">
-          {m.name.charAt(0).toUpperCase()}
+      {/* Header with actions */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-semibold">
+            {m.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-text-primary">{m.name}</h1>
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded ${
+                m.status === 'active'
+                  ? 'bg-success/20 text-success'
+                  : 'bg-surface-overlay text-text-tertiary'
+              }`}
+            >
+              {m.status}
+            </span>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-semibold text-text-primary">{m.name}</h1>
-          <span
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              m.status === 'active'
-                ? 'bg-success/20 text-success'
-                : 'bg-surface-overlay text-text-tertiary'
-            }`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setEditing(!editing);
+              setEditName(m.name);
+            }}
+            className="text-sm text-accent-text hover:text-accent-hover"
           >
-            {m.status}
-          </span>
+            {editing ? 'Cancel' : 'Edit'}
+          </button>
+          {m.status === 'active' ? (
+            <button
+              onClick={() => {
+                if (confirm(`Deactivate "${m.name}"? They won't appear in assignment dropdowns.`))
+                  updateMember.mutate(
+                    { id: m.id, status: 'inactive' },
+                    { onError: (err) => toast.error(`Failed: ${errorMessage(err)}`) },
+                  );
+              }}
+              className="text-sm text-text-tertiary hover:text-danger"
+            >
+              Deactivate
+            </button>
+          ) : (
+            <button
+              onClick={() =>
+                updateMember.mutate(
+                  { id: m.id, status: 'active' },
+                  { onError: (err) => toast.error(`Failed: ${errorMessage(err)}`) },
+                )
+              }
+              className="text-sm text-text-tertiary hover:text-success"
+            >
+              Activate
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (confirm(`Delete "${m.name}"? This removes their identities and assignments.`)) {
+                deleteMember.mutate(m.id, {
+                  onSuccess: () => {
+                    toast.success('Member deleted');
+                    navigate({ to: '/members' });
+                  },
+                  onError: (err) => toast.error(`Failed: ${errorMessage(err)}`),
+                });
+              }
+            }}
+            className="text-sm text-danger hover:text-danger/80"
+          >
+            Delete
+          </button>
         </div>
       </div>
+
+      {/* Inline edit form */}
+      {editing && (
+        <div className="mb-6 bg-surface-raised border border-border rounded-sm p-4">
+          <div className="flex gap-2">
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Member name"
+              className="flex-1 px-3 py-2 bg-surface border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && editName.trim() && editName !== m.name) {
+                  updateMember.mutate(
+                    { id: m.id, name: editName.trim() },
+                    {
+                      onSuccess: () => {
+                        toast.success('Member renamed');
+                        setEditing(false);
+                      },
+                      onError: (err) => toast.error(`Failed to rename: ${errorMessage(err)}`),
+                    },
+                  );
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                if (editName.trim() && editName !== m.name) {
+                  updateMember.mutate(
+                    { id: m.id, name: editName.trim() },
+                    {
+                      onSuccess: () => {
+                        toast.success('Member renamed');
+                        setEditing(false);
+                      },
+                      onError: (err) => toast.error(`Failed to rename: ${errorMessage(err)}`),
+                    },
+                  );
+                }
+              }}
+              disabled={!editName.trim() || editName === m.name || updateMember.isPending}
+              className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pending reviews */}
       <section className="mb-8">
@@ -134,9 +247,13 @@ export function MemberDetail() {
 
       {/* Identity mappings */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-1">
           Identity Mappings
         </h2>
+        <p className="text-xs text-text-tertiary mb-3">
+          Link this member's git usernames and emails so their commits are attributed correctly
+          across platforms.
+        </p>
         <MemberIdentitySection memberId={id} />
       </section>
 
@@ -217,6 +334,8 @@ export function MemberDetail() {
   );
 }
 
+/* ── Sub-components ────────────────────────────────────────────────── */
+
 function MemberIdentitySection({ memberId }: { memberId: string }) {
   const identities = useMemberIdentities(memberId);
   const addIdentity = useAddIdentity();
@@ -234,6 +353,7 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
           setValue('');
           identities.refetch();
         },
+        onError: (err) => toast.error(`Failed to add identity: ${errorMessage(err)}`),
       },
     );
   }
@@ -244,6 +364,7 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
         toast.success('Identity removed');
         identities.refetch();
       },
+      onError: (err) => toast.error(`Failed to remove identity: ${errorMessage(err)}`),
     });
   }
 
@@ -346,6 +467,7 @@ function AssignToProjectForm({
           setRole('');
           onAssigned();
         },
+        onError: (err) => toast.error(`Failed to assign: ${errorMessage(err)}`),
       },
     );
   }
@@ -354,18 +476,13 @@ function AssignToProjectForm({
     <div className="bg-surface-raised border border-border rounded-sm p-4 mb-4">
       <h3 className="text-sm font-medium text-text-primary mb-3">Assign to Project</h3>
       <div className="flex flex-wrap gap-2">
-        <select
+        <SearchableSelect
+          options={activeProjects.map((p) => ({ value: p.id, label: p.name }))}
           value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="px-3 py-2 bg-surface border border-border rounded text-sm text-text-secondary"
-        >
-          <option value="">Select project...</option>
-          {activeProjects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          onChange={setProjectId}
+          placeholder="Search projects..."
+          className="w-48"
+        />
         <input
           type="date"
           value={startDate}

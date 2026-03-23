@@ -1,36 +1,40 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import * as schema from '../data/schema.js';
 import { GitReader } from '../integrations/git/git-reader.js';
 import { MemberService } from './member-service.js';
 import type { DrizzleDB } from '../data/db.js';
 import type { RawCommit } from '../integrations/git/types.js';
-
-export interface BatchResult {
-  reposScanned: number;
-  reposSkipped: number;
-  reposFailed: number;
-  totalNewCommits: number;
-  results: Array<{
-    repoId: string;
-    projectId: string;
-    localPath: string;
-    status: 'scanned' | 'skipped' | 'failed';
-    newCommits: number;
-    error?: string;
-  }>;
-}
+import type { SyncFilters, ScanBatchResult } from '@twle/vantage-shared';
 
 export const ScanService = {
-  async scanAll(db: DrizzleDB): Promise<BatchResult> {
-    // Fetch all local repos (type = 'local' and localPath set)
-    const repos = await db
-      .select()
-      .from(schema.repository)
-      .where(eq(schema.repository.type, 'local'))
-      .all();
+  async scanAll(db: DrizzleDB, filters?: SyncFilters): Promise<ScanBatchResult> {
+    // Fetch repos based on filters
+    let repos;
+    if (filters?.repoId) {
+      const repo = await db.select().from(schema.repository)
+        .where(and(
+          eq(schema.repository.id, filters.repoId),
+          eq(schema.repository.type, 'local'),
+          isNotNull(schema.repository.localPath),
+        )).get();
+      repos = repo ? [repo] : [];
+    } else if (filters?.projectId) {
+      repos = await db.select().from(schema.repository)
+        .where(and(
+          eq(schema.repository.projectId, filters.projectId),
+          eq(schema.repository.type, 'local'),
+          isNotNull(schema.repository.localPath),
+        )).all();
+    } else {
+      repos = await db.select().from(schema.repository)
+        .where(and(
+          eq(schema.repository.type, 'local'),
+          isNotNull(schema.repository.localPath),
+        )).all();
+    }
 
-    const result: BatchResult = {
+    const result: ScanBatchResult = {
       reposScanned: 0,
       reposSkipped: 0,
       reposFailed: 0,
@@ -53,7 +57,7 @@ export const ScanService = {
       }
 
       try {
-        const newCommits = await ScanService.scanRepository(db, repo);
+        const newCommits = await ScanService.scanRepository(db, repo, filters);
         result.reposScanned++;
         result.totalNewCommits += newCommits;
         result.results.push({
@@ -83,6 +87,7 @@ export const ScanService = {
   async scanRepository(
     db: DrizzleDB,
     repo: { id: string; projectId: string; localPath: string | null },
+    filters?: SyncFilters,
   ): Promise<number> {
     if (!repo.localPath) {
       throw new Error('Repository has no local path');
@@ -112,6 +117,11 @@ export const ScanService = {
         .get();
     }
 
+    // Reset failed repos to idle so they can be retried
+    db.$client
+      .prepare('UPDATE scan_state SET status = ?, error_message = NULL, updated_at = ? WHERE repo_id = ? AND status = ?')
+      .run('idle', now, repo.id, 'failed');
+
     // Atomic concurrent scan prevention: only transition idle→scanning
     const updateResult = db.$client
       .prepare(
@@ -128,8 +138,13 @@ export const ScanService = {
       let rawCommits: RawCommit[];
 
       if (!state!.lastCommitHash) {
-        // First scan — get everything
-        rawCommits = await GitReader.getAllCommits(repo.localPath);
+        if (filters?.since) {
+          // First scan with date filter
+          rawCommits = await GitReader.getNewCommits(repo.localPath, filters.since);
+        } else {
+          // First scan — get everything
+          rawCommits = await GitReader.getAllCommits(repo.localPath);
+        }
       } else {
         // Incremental — find the authored_at of the last known commit
         const lastChange = await db

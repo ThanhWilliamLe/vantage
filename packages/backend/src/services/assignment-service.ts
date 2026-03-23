@@ -10,13 +10,21 @@ export const AssignmentService = {
     input: { memberId: string; projectId: string; role?: string; startDate: string },
   ) {
     // Verify member exists
-    const mem = await db.select().from(schema.member).where(eq(schema.member.id, input.memberId)).get();
+    const mem = await db
+      .select()
+      .from(schema.member)
+      .where(eq(schema.member.id, input.memberId))
+      .get();
     if (!mem) {
       throw new NotFoundError('Member', input.memberId);
     }
 
     // Verify project exists
-    const proj = await db.select().from(schema.project).where(eq(schema.project.id, input.projectId)).get();
+    const proj = await db
+      .select()
+      .from(schema.project)
+      .where(eq(schema.project.id, input.projectId))
+      .get();
     if (!proj) {
       throw new NotFoundError('Project', input.projectId);
     }
@@ -48,19 +56,12 @@ export const AssignmentService = {
       throw new NotFoundError('Assignment', id);
     }
 
-    await db
-      .update(schema.assignment)
-      .set({ endDate })
-      .where(eq(schema.assignment.id, id));
+    await db.update(schema.assignment).set({ endDate }).where(eq(schema.assignment.id, id));
 
     return { ...existing, endDate };
   },
 
-  async update(
-    db: DrizzleDB,
-    id: string,
-    input: { endDate?: string; role?: string },
-  ) {
+  async update(db: DrizzleDB, id: string, input: { endDate?: string; role?: string }) {
     const existing = await db
       .select()
       .from(schema.assignment)
@@ -77,6 +78,18 @@ export const AssignmentService = {
     await db.update(schema.assignment).set(updates).where(eq(schema.assignment.id, id));
 
     return { ...existing, ...updates };
+  },
+
+  async delete(db: DrizzleDB, id: string) {
+    const existing = await db
+      .select()
+      .from(schema.assignment)
+      .where(eq(schema.assignment.id, id))
+      .get();
+    if (!existing) {
+      throw new NotFoundError('Assignment', id);
+    }
+    await db.delete(schema.assignment).where(eq(schema.assignment.id, id));
   },
 
   async listByMember(db: DrizzleDB, memberId: string) {

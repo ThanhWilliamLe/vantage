@@ -111,6 +111,16 @@ export function useUpdateMember() {
   });
 }
 
+export function useDeleteMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.del(`/api/members/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.members });
+    },
+  });
+}
+
 // ── Credential mutation hooks ───────────────────────────────
 
 export function useCreateCredential() {
@@ -118,6 +128,17 @@ export function useCreateCredential() {
   return useMutation({
     mutationFn: (data: { name: string; platform: string; token: string; instanceUrl?: string }) =>
       apiClient.post('/api/credentials', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.credentials });
+    },
+  });
+}
+
+export function useUpdateCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; token?: string }) =>
+      apiClient.put(`/api/credentials/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.credentials });
     },
@@ -156,6 +177,29 @@ export function useCreateAIProvider() {
       cliCommand?: string;
       cliIoMethod?: string;
     }) => apiClient.post('/api/ai-providers', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.aiProviders });
+    },
+  });
+}
+
+export function useUpdateAIProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      type?: string;
+      preset?: string;
+      endpointUrl?: string;
+      apiKey?: string;
+      model?: string;
+      cliCommand?: string;
+      cliIoMethod?: string;
+    }) => apiClient.put(`/api/ai-providers/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.aiProviders });
     },
@@ -204,8 +248,8 @@ export function useCreateAssignment() {
     mutationFn: (data: { memberId: string; projectId: string; role?: string; startDate: string }) =>
       apiClient.post<Assignment>('/api/assignments', data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: queryKeys.members });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
     },
   });
 }
@@ -216,8 +260,19 @@ export function useEndAssignment() {
     mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
       apiClient.put<Assignment>(`/api/assignments/${id}`, { endDate }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: queryKeys.members });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useDeleteAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.del(`/api/assignments/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.members });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
     },
   });
 }
@@ -238,7 +293,7 @@ export function useAddIdentity() {
     }) =>
       apiClient.post<MemberIdentity>(`/api/members/${memberId}/identities`, { platform, value }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: queryKeys.members });
     },
   });
 }
@@ -248,7 +303,7 @@ export function useRemoveIdentity() {
   return useMutation({
     mutationFn: (identityId: string) => apiClient.del(`/api/identities/${identityId}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: queryKeys.members });
     },
   });
 }
@@ -309,6 +364,74 @@ export function useDeleteTaskPattern() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.del(`/api/task-patterns/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+// ── Task tracker credential mutation hooks ──────────────────
+
+export function useTaskTrackerCredentials(projectId: string) {
+  return useQuery({
+    queryKey: [...queryKeys.projects, projectId, 'task-tracker-credentials'],
+    queryFn: () =>
+      apiClient.get<
+        {
+          id: string;
+          projectId: string;
+          name: string;
+          platform: string;
+          instanceUrl: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }[]
+      >(`/api/projects/${projectId}/task-tracker-credentials`),
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateTaskTrackerCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      ...data
+    }: {
+      projectId: string;
+      name: string;
+      platform: string;
+      token: string;
+      instanceUrl?: string;
+    }) => apiClient.post(`/api/projects/${projectId}/task-tracker-credentials`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useUpdateTaskTrackerCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      token?: string;
+      instanceUrl?: string;
+    }) => apiClient.put(`/api/task-tracker-credentials/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useDeleteTaskTrackerCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.del(`/api/task-tracker-credentials/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.projects });
     },

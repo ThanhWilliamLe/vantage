@@ -285,14 +285,12 @@ describe('Settings view', () => {
   it('shows all sub-sections in nav', async () => {
     renderApp('/settings');
     await waitFor(() => {
-      // "Projects" and "Members" appear in sidebar + settings nav + section heading,
-      // so we check they appear at least twice (sidebar + settings)
-      expect(screen.getAllByText('Projects').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('Members').length).toBeGreaterThanOrEqual(2);
-      // These are unique to settings
+      // Settings has 4 tabs: Credentials, AI Provider, Access Password, Data Management
+      // (Projects and Members were moved to their own entity pages)
       expect(screen.getByText('Credentials')).toBeInTheDocument();
       expect(screen.getByText('AI Provider')).toBeInTheDocument();
       expect(screen.getByText('Access Password')).toBeInTheDocument();
+      expect(screen.getByText('Data Management')).toBeInTheDocument();
     });
   });
 });

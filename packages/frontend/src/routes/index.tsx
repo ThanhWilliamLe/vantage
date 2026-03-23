@@ -12,6 +12,7 @@ import { useEvaluations } from '../hooks/api/evaluations.js';
 import { useMemo } from 'react';
 import { format } from 'date-fns/format';
 import { subDays } from 'date-fns/subDays';
+import { SyncBar } from '../components/sync-bar.js';
 
 function StatCard({
   label,
@@ -138,25 +139,61 @@ function Dashboard() {
     );
   }
 
+  const setupSteps = [
+    { label: 'Create a project', done: projectCount > 0, to: '/projects' as const },
+    { label: 'Add team members', done: memberCount > 0, to: '/members' as const },
+    {
+      label: 'Scan repositories',
+      done: pendingCount > 0 || (history.data?.items?.length ?? 0) > 0,
+      to: '/reviews' as const,
+    },
+  ];
+  const setupComplete = setupSteps.every((s) => s.done);
+
   if (projectCount === 0 && memberCount === 0) {
     return (
       <div data-testid="dashboard-empty">
         <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
         <div className="mt-12 flex flex-col items-center gap-4 text-center">
-          <div className="w-16 h-16 rounded-full bg-surface-raised border border-border flex items-center justify-center text-2xl text-text-tertiary">
-            V
+          <div className="w-16 h-16 rounded-full bg-surface-raised border border-border flex items-center justify-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 100 100"
+              className="w-8 h-8"
+              aria-hidden="true"
+            >
+              <rect x="8" y="16" width="84" height="14" rx="2" fill="#5FBFB2" />
+              <rect x="20" y="42" width="60" height="14" rx="2" fill="#5FBFB2" opacity="0.6" />
+              <rect x="34" y="68" width="32" height="14" rx="2" fill="#5FBFB2" opacity="0.3" />
+            </svg>
           </div>
           <h2 className="text-lg text-text-primary">Welcome to Vantage</h2>
           <p className="text-sm text-text-secondary max-w-md">
-            Create your first project to get started. Set up projects and members in Settings, then
-            scan repositories to populate the review queue.
+            Set up your projects and team to start tracking code reviews.
           </p>
-          <button
-            onClick={() => navigate({ to: '/settings', search: {} })}
-            className="mt-2 px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover transition-colors"
-          >
-            Go to Settings
-          </button>
+        </div>
+        <div className="mt-8 max-w-md mx-auto space-y-2">
+          {setupSteps.map((step, i) => (
+            <button
+              key={step.label}
+              onClick={() => navigate({ to: step.to })}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-surface-raised border border-border rounded-sm hover:bg-surface-overlay transition-colors text-left"
+            >
+              <span
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                  step.done ? 'bg-success/20 text-success' : 'bg-surface-overlay text-text-tertiary'
+                }`}
+              >
+                {step.done ? '\u2713' : i + 1}
+              </span>
+              <span
+                className={`text-sm ${step.done ? 'text-text-tertiary line-through' : 'text-text-primary'}`}
+              >
+                {step.label}
+              </span>
+              {!step.done && <span className="ml-auto text-xs text-accent-text">&rarr;</span>}
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -168,6 +205,27 @@ function Dashboard() {
       <p className="mt-1 text-sm text-text-secondary">
         Overview of review activity, team workload, and recent changes.
       </p>
+
+      {/* Setup checklist banner (partial setup) */}
+      {!setupComplete && (
+        <div className="mt-4 px-4 py-3 bg-surface-raised border border-border rounded-sm">
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-text-secondary font-medium shrink-0">Setup:</span>
+            {setupSteps.map((step) => (
+              <button
+                key={step.label}
+                onClick={() => navigate({ to: step.to })}
+                className={`flex items-center gap-1.5 ${step.done ? 'text-success' : 'text-accent-text hover:text-accent-hover'}`}
+              >
+                <span className="text-xs">{step.done ? '\u2713' : '\u25CB'}</span>
+                <span className={step.done ? 'line-through text-text-tertiary' : ''}>
+                  {step.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {aiStatus.data?.processing && (
         <div className="mt-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-sm text-sm text-accent-text flex items-center gap-2">
@@ -201,6 +259,9 @@ function Dashboard() {
           onClick={() => navigate({ to: '/members' })}
         />
       </div>
+
+      {/* Sync controls */}
+      <SyncBar />
 
       {/* Tier 2 — Action areas */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">

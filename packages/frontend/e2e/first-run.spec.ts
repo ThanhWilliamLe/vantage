@@ -27,14 +27,14 @@ test.describe.serial('First-run journey', () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test('navigate to Settings and create a project', async ({ page }) => {
-    await page.goto('/settings');
+  test('navigate to Projects and create a project', async ({ page }) => {
+    await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('h1').filter({ hasText: 'Settings' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('h1').filter({ hasText: 'Projects' })).toBeVisible({ timeout: 10_000 });
 
-    // The Projects tab should be active by default
-    await expect(page.locator('text=Create Project')).toBeVisible({ timeout: 10_000 });
+    // Click "+ New Project" to show the create form
+    await page.locator('button', { hasText: '+ New Project' }).click();
 
     // Fill the create-project form
     await page.locator('input[placeholder="Project name"]').first().fill(projectName);
@@ -45,27 +45,22 @@ test.describe.serial('First-run journey', () => {
     await expect(page.locator('text=' + projectName)).toBeVisible({ timeout: 10_000 });
   });
 
-  test('expand project and add a repository', async ({ page }) => {
-    await page.goto('/settings');
+  test('open project detail and add a repository', async ({ page }) => {
+    await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    // Wait for project list to render, then expand the project we created
+    // Wait for project list to render, then click into the project detail
     await expect(page.locator('text=' + projectName)).toBeVisible({ timeout: 10_000 });
+    await page.locator('tr').filter({ hasText: projectName }).click();
 
-    // Click the expand arrow next to our specific project (other tests may have created projects)
-    const projectRow = page.locator('div.bg-surface-raised').filter({ hasText: projectName });
-    await projectRow.locator('button[aria-label="Expand project"]').click();
-
-    // Wait for the Repositories sub-section to appear
-    const repoSection = page.locator('h4', { hasText: 'Repositories' }).locator('..');
-    await expect(repoSection).toBeVisible({ timeout: 10_000 });
+    // Wait for the Repositories section to appear on the detail page
+    await expect(page.locator('h2', { hasText: 'Repositories' })).toBeVisible({ timeout: 10_000 });
 
     // Fill the local path
     const pathInput = page.locator('input[placeholder*="Local path"]');
     await pathInput.fill(fixtureRepoPath);
 
-    // The Add button becomes enabled when path is filled — find it near the path input
-    // The form is: <div class="flex..."><select/><input/><button>Add</button></div>
+    // Click Add button
     const addRepoBtn = page.locator('button', { hasText: 'Add' }).filter({ has: page.locator('text=Add') }).first();
     await expect(addRepoBtn).toBeEnabled({ timeout: 5_000 });
     await addRepoBtn.click();
@@ -74,13 +69,13 @@ test.describe.serial('First-run journey', () => {
     await expect(page.locator('text=Repository added').first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('switch to Members tab and create a member', async ({ page }) => {
-    await page.goto('/settings');
+  test('navigate to Members and create a member', async ({ page }) => {
+    await page.goto('/members');
     await page.waitForLoadState('networkidle');
 
-    // Click Members in the settings content nav (not the sidebar)
-    await page.getByRole('list').getByRole('button', { name: 'Members' }).click();
-    await expect(page.locator('text=Add Member')).toBeVisible({ timeout: 10_000 });
+    // Click "+ Add Member" to show the create form
+    await page.locator('button', { hasText: '+ Add Member' }).click();
+    await expect(page.locator('input[placeholder="Member name"]')).toBeVisible({ timeout: 10_000 });
 
     // Create member
     await page.locator('input[placeholder="Member name"]').fill(memberName);

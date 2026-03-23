@@ -1,4 +1,4 @@
-import { eq, and, inArray, gte } from 'drizzle-orm';
+import { eq, and, inArray, gte, isNotNull } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import * as schema from '../data/schema.js';
 import { CredentialService } from './credential-service.js';
@@ -13,24 +13,12 @@ import type { PRDetailMetadata } from '../integrations/github/types.js';
 import type { MRDetailMetadata } from '../integrations/gitlab/types.js';
 import type { BitbucketPRDetailMetadata } from '../integrations/bitbucket/types.js';
 import type { GiteaPRDetailMetadata } from '../integrations/gitea/types.js';
+import type { SyncFilters } from '@twle/vantage-shared';
+
+export type { SyncBatchResult } from '@twle/vantage-shared';
+import type { SyncBatchResult } from '@twle/vantage-shared';
 
 // ─── Types ──────────────────────────────────────
-
-export interface SyncBatchResult {
-  reposSynced: number;
-  reposSkipped: number;
-  reposFailed: number;
-  totalNewItems: number;
-  results: Array<{
-    repoId: string;
-    projectId: string;
-    platform: string;
-    status: 'synced' | 'skipped' | 'failed';
-    newItems: number;
-    updatedItems: number;
-    error?: string;
-  }>;
-}
 
 interface RepoRow {
   id: string;
@@ -190,19 +178,28 @@ export const SyncService = {
   async syncAll(
     db: DrizzleDB,
     key: Buffer,
+    filters?: SyncFilters,
     adapterFactory: AdapterFactory = defaultAdapterFactory,
   ): Promise<SyncBatchResult> {
-    const repos = await db.select().from(schema.repository).all();
+    const apiTypes = ['github', 'gitlab', 'bitbucket', 'gitea'];
+    let apiRepos;
 
-    // Filter to repos with API platform types and credentials
-    const apiRepos = repos.filter(
-      (r) =>
-        (r.type === 'github' ||
-          r.type === 'gitlab' ||
-          r.type === 'bitbucket' ||
-          r.type === 'gitea') &&
-        r.credentialId,
-    );
+    if (filters?.repoId) {
+      const repo = await db.select().from(schema.repository)
+        .where(and(
+          eq(schema.repository.id, filters.repoId),
+          isNotNull(schema.repository.credentialId),
+        )).get();
+      apiRepos = (repo && apiTypes.includes(repo.type)) ? [repo] : [];
+    } else if (filters?.projectId) {
+      const repos = await db.select().from(schema.repository)
+        .where(eq(schema.repository.projectId, filters.projectId))
+        .all();
+      apiRepos = repos.filter(r => apiTypes.includes(r.type) && r.credentialId);
+    } else {
+      const repos = await db.select().from(schema.repository).all();
+      apiRepos = repos.filter(r => apiTypes.includes(r.type) && r.credentialId);
+    }
 
     const result: SyncBatchResult = {
       reposSynced: 0,
@@ -218,6 +215,7 @@ export const SyncService = {
           db,
           key,
           repo as RepoRow,
+          filters,
           adapterFactory,
         );
         result.reposSynced++;
@@ -258,6 +256,7 @@ export const SyncService = {
     db: DrizzleDB,
     key: Buffer,
     repo: RepoRow,
+    filters?: SyncFilters,
     adapterFactory: AdapterFactory = defaultAdapterFactory,
   ): Promise<{ newItems: number; updatedItems: number }> {
     if (!repo.credentialId) {
@@ -288,6 +287,11 @@ export const SyncService = {
         .get();
     }
 
+    // Reset failed repos to idle so they can be retried
+    db.$client
+      .prepare('UPDATE sync_state SET status = ?, error_message = NULL, updated_at = ? WHERE repo_id = ? AND status = ?')
+      .run('idle', now, repo.id, 'failed');
+
     // Atomic concurrent sync prevention: only transition idle→syncing
     const updateResult = db.$client
       .prepare(
@@ -302,7 +306,7 @@ export const SyncService = {
     try {
       // Decrypt the API token
       const token = await CredentialService.getDecryptedToken(db, key, repo.credentialId);
-      const cursor = state!.lastSyncCursor ?? undefined;
+      const cursor = state!.lastSyncCursor ?? filters?.since ?? undefined;
 
       let newItems = 0;
       let updatedItems = 0;

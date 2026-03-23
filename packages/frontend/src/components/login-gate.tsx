@@ -41,6 +41,7 @@ export function LoginGate({ children }: LoginGateProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
+            aria-label="Access password"
             className="w-full px-3 py-2 bg-surface-raised border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent"
             autoFocus
           />

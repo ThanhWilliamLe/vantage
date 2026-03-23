@@ -11,6 +11,12 @@ import type {
   TrendChartResponse,
   HeatmapChartResponse,
   IdentitySuggestion,
+  SyncFilters,
+  ScanBatchResult,
+  SyncBatchResult,
+  CombinedSyncResult,
+  ScanState,
+  SyncState,
 } from '@twle/vantage-shared';
 
 // ── Query keys ──────────────────────────────────────────────
@@ -36,12 +42,15 @@ export const queryKeys = {
   deepAnalysis: (codeChangeId: string) => ['deep-analysis', codeChangeId] as const,
   credentials: ['credentials'] as const,
   aiProviders: ['ai-providers'] as const,
+  identitySuggestions: ['identity-suggestions'] as const,
   workloadChartBar: (startDate: string, endDate: string) =>
     ['workload-chart-bar', startDate, endDate] as const,
   workloadChartTrend: (startDate: string, endDate: string, memberId?: string, projectId?: string) =>
     ['workload-chart-trend', startDate, endDate, memberId, projectId] as const,
   workloadChartHeatmap: (startDate: string, endDate: string) =>
     ['workload-chart-heatmap', startDate, endDate] as const,
+  scanStatus: ['scan-status'] as const,
+  syncStatus: ['sync-status'] as const,
 };
 
 // ── Query response types ────────────────────────────────────
@@ -283,7 +292,7 @@ export function useWorkloadChartHeatmap(startDate: string, endDate: string) {
 
 export function useIdentitySuggestions() {
   return useQuery({
-    queryKey: ['identity-suggestions'],
+    queryKey: queryKeys.identitySuggestions,
     queryFn: () => apiClient.get<IdentitySuggestion[]>('/api/members/identity-suggestions'),
   });
 }
@@ -294,9 +303,88 @@ export function useAcceptSuggestion() {
     mutationFn: (data: { authorRaw: string; memberId: string; platform: string }) =>
       apiClient.post('/api/members/identity-suggestions/accept', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['identity-suggestions'] });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.identitySuggestions });
+      queryClient.invalidateQueries({ queryKey: queryKeys.members });
       queryClient.invalidateQueries({ queryKey: ['pending-queue'] });
     },
+  });
+}
+
+// ── Sync hooks (Sync Now feature) ───────────────────────
+
+/** Trigger scan of local repos with optional filters. */
+export function useScanRepos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filters?: SyncFilters) =>
+      apiClient.post<ScanBatchResult>('/api/scan', filters ?? {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] });
+      qc.invalidateQueries({ queryKey: ['code-changes'] });
+      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['workload'] });
+      qc.invalidateQueries({ queryKey: queryKeys.scanStatus });
+    },
+  });
+}
+
+/** Trigger sync of API repos with optional filters. */
+export function useSyncRepos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filters?: SyncFilters) =>
+      apiClient.post<SyncBatchResult>('/api/sync', filters ?? {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] });
+      qc.invalidateQueries({ queryKey: ['code-changes'] });
+      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['workload'] });
+      qc.invalidateQueries({ queryKey: queryKeys.syncStatus });
+    },
+  });
+}
+
+/** Combined sync: calls both scan + sync, returns merged result. */
+export function useSyncAll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (filters?: SyncFilters): Promise<CombinedSyncResult> => {
+      const [scan, sync] = await Promise.all([
+        apiClient.post<ScanBatchResult>('/api/scan', filters ?? {}),
+        apiClient.post<SyncBatchResult>('/api/sync', filters ?? {}),
+      ]);
+      return { scan, sync };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] });
+      qc.invalidateQueries({ queryKey: ['code-changes'] });
+      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['workload'] });
+      qc.invalidateQueries({ queryKey: queryKeys.scanStatus });
+      qc.invalidateQueries({ queryKey: queryKeys.syncStatus });
+    },
+  });
+}
+
+/** Poll scan state. Enable only while a scan mutation is pending. */
+export function useScanStatus(enabled = false) {
+  return useQuery({
+    queryKey: queryKeys.scanStatus,
+    queryFn: () => apiClient.get<ScanState[]>('/api/scan/status'),
+    enabled,
+    refetchInterval: 3000,
+  });
+}
+
+/** Poll sync state. Enable only while a sync mutation is pending. */
+export function useSyncStatus(enabled = false) {
+  return useQuery({
+    queryKey: queryKeys.syncStatus,
+    queryFn: () => apiClient.get<SyncState[]>('/api/sync/status'),
+    enabled,
+    refetchInterval: 3000,
   });
 }

@@ -28,6 +28,7 @@ import { backupRoutes } from './routes/backup.js';
 import { importRoutes } from './routes/import.js';
 import { identitySuggestionRoutes } from './routes/identity-suggestions.js';
 import { taskTrackerRoutes } from './routes/task-tracker.js';
+import { systemRoutes } from './routes/system.js';
 import authMiddleware from './plugins/auth-middleware.js';
 
 // Extend Fastify instance type with our decorators
@@ -143,6 +144,7 @@ export function buildApp(options?: BuildAppOptions) {
     app.register(importRoutes);
     app.register(identitySuggestionRoutes);
     app.register(taskTrackerRoutes);
+    app.register(systemRoutes);
     app.register(authRoutes);
   }
 

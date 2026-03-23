@@ -35,6 +35,12 @@ export async function assignmentRoutes(app: FastifyInstance) {
     return assignment;
   });
 
+  app.delete('/api/assignments/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await AssignmentService.delete(app.db, id);
+    return reply.status(204).send();
+  });
+
   app.get('/api/members/:memberId/assignments', async (request) => {
     const { memberId } = request.params as { memberId: string };
     const assignments = await AssignmentService.listByMember(app.db, memberId);

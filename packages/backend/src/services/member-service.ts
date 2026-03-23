@@ -21,11 +21,7 @@ export const MemberService = {
     return row;
   },
 
-  async update(
-    db: DrizzleDB,
-    id: string,
-    input: { name?: string; status?: string },
-  ) {
+  async update(db: DrizzleDB, id: string, input: { name?: string; status?: string }) {
     const existing = await db.select().from(schema.member).where(eq(schema.member.id, id)).get();
     if (!existing) {
       throw new NotFoundError('Member', id);
@@ -64,20 +60,12 @@ export const MemberService = {
 
   async list(db: DrizzleDB, filter?: { status?: string }) {
     if (filter?.status) {
-      return db
-        .select()
-        .from(schema.member)
-        .where(eq(schema.member.status, filter.status))
-        .all();
+      return db.select().from(schema.member).where(eq(schema.member.status, filter.status)).all();
     }
     return db.select().from(schema.member).all();
   },
 
-  async addIdentity(
-    db: DrizzleDB,
-    memberId: string,
-    input: { platform: string; value: string },
-  ) {
+  async addIdentity(db: DrizzleDB, memberId: string, input: { platform: string; value: string }) {
     // Verify member exists
     const mem = await db.select().from(schema.member).where(eq(schema.member.id, memberId)).get();
     if (!mem) {
@@ -126,6 +114,18 @@ export const MemberService = {
     return row;
   },
 
+  async delete(db: DrizzleDB, id: string) {
+    const existing = await db.select().from(schema.member).where(eq(schema.member.id, id)).get();
+    if (!existing) {
+      throw new NotFoundError('Member', id);
+    }
+
+    // Cascade: remove identities and assignments first
+    await db.delete(schema.memberIdentity).where(eq(schema.memberIdentity.memberId, id));
+    await db.delete(schema.assignment).where(eq(schema.assignment.memberId, id));
+    await db.delete(schema.member).where(eq(schema.member.id, id));
+  },
+
   async removeIdentity(db: DrizzleDB, identityId: string) {
     const existing = await db
       .select()
@@ -139,29 +139,18 @@ export const MemberService = {
     await db.delete(schema.memberIdentity).where(eq(schema.memberIdentity.id, identityId));
   },
 
-  async resolveAuthor(
-    db: DrizzleDB,
-    platform: string,
-    value: string,
-  ) {
+  async resolveAuthor(db: DrizzleDB, platform: string, value: string) {
     // When resolving git authors, also match identities stored as 'email'
     // since the UI stores email identities with platform='email'
-    const platformCondition = platform === 'git'
-      ? or(
-          eq(schema.memberIdentity.platform, 'git'),
-          eq(schema.memberIdentity.platform, 'email'),
-        )
-      : eq(schema.memberIdentity.platform, platform);
+    const platformCondition =
+      platform === 'git'
+        ? or(eq(schema.memberIdentity.platform, 'git'), eq(schema.memberIdentity.platform, 'email'))
+        : eq(schema.memberIdentity.platform, platform);
 
     const identity = await db
       .select()
       .from(schema.memberIdentity)
-      .where(
-        and(
-          platformCondition,
-          eq(schema.memberIdentity.value, value),
-        ),
-      )
+      .where(and(platformCondition, eq(schema.memberIdentity.value, value)))
       .get();
 
     if (!identity) return null;

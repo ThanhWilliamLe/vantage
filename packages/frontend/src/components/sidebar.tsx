@@ -38,6 +38,9 @@ const navSections: NavSection[] = [
   },
 ];
 
+// All registered nav paths — used for longest-prefix-match active state detection.
+const allPaths = navSections.flatMap((s) => s.items.map((i) => i.to));
+
 export function Sidebar() {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -54,10 +57,19 @@ export function Sidebar() {
   }
 
   function renderItem(item: NavItem) {
-    const isActive =
-      item.to === '/'
-        ? currentPath === '/'
-        : currentPath === item.to || currentPath.startsWith(item.to + '/');
+    // Exact match always wins. For prefix matching, only activate if no other
+    // registered nav item is a longer (more specific) prefix match.
+    const exactMatch = currentPath === item.to;
+    const prefixMatch = item.to !== '/' && currentPath.startsWith(item.to + '/');
+    const hasMoreSpecific =
+      prefixMatch &&
+      allPaths.some(
+        (p) =>
+          p !== item.to &&
+          p.startsWith(item.to + '/') &&
+          (currentPath === p || currentPath.startsWith(p + '/')),
+      );
+    const isActive = exactMatch || (prefixMatch && !hasMoreSpecific);
     const badge = getBadge(item);
     return (
       <button
@@ -85,9 +97,21 @@ export function Sidebar() {
       className={`flex flex-col bg-surface border-r border-border transition-all ${collapsed ? 'w-14' : 'w-56'}`}
     >
       <div className="flex items-center justify-between p-3 border-b border-border">
-        {!collapsed && (
-          <span className="text-sm font-semibold text-text-primary tracking-wide">Vantage</span>
-        )}
+        <div className="flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 100 100"
+            className="w-5 h-5 shrink-0"
+            aria-hidden="true"
+          >
+            <rect x="8" y="16" width="84" height="14" rx="2" fill="#5FBFB2" />
+            <rect x="20" y="42" width="60" height="14" rx="2" fill="#5FBFB2" opacity="0.6" />
+            <rect x="34" y="68" width="32" height="14" rx="2" fill="#5FBFB2" opacity="0.3" />
+          </svg>
+          {!collapsed && (
+            <span className="text-sm font-semibold text-text-primary tracking-wide">Vantage</span>
+          )}
+        </div>
         <button
           onClick={toggleSidebar}
           className="text-text-tertiary hover:text-text-primary text-xs px-1"

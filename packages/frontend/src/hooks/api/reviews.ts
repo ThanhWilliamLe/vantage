@@ -53,9 +53,9 @@ export function useReviewAction() {
       return apiClient.post(`/api/code-changes/${id}/defer`, {});
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pending-queue'] });
-      qc.invalidateQueries({ queryKey: ['code-changes'] });
-      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
     },
   });
 }
@@ -70,9 +70,9 @@ export function useBatchAction() {
       flagReason?: string;
     }) => apiClient.post('/api/code-changes/batch-action', data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pending-queue'] });
-      qc.invalidateQueries({ queryKey: ['code-changes'] });
-      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
     },
   });
 }
@@ -83,9 +83,9 @@ export function useCommunicateAction() {
     mutationFn: (id: string) =>
       apiClient.post<CodeChange>(`/api/code-changes/${id}/communicate`, {}),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pending-queue'] });
-      qc.invalidateQueries({ queryKey: ['code-changes'] });
-      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
     },
   });
 }
@@ -95,9 +95,9 @@ export function useResolveAction() {
   return useMutation({
     mutationFn: (id: string) => apiClient.post<CodeChange>(`/api/code-changes/${id}/resolve`, {}),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pending-queue'] });
-      qc.invalidateQueries({ queryKey: ['code-changes'] });
-      qc.invalidateQueries({ queryKey: ['history'] });
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
     },
   });
 }

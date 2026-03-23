@@ -26,20 +26,7 @@ export function CommandPalette() {
   });
   const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen(!open);
-      }
-      if (e.key === 'Escape' && open) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, setOpen]);
-
+  // Ctrl+K and Escape are handled globally in __root.tsx.
   // Search members and projects when query changes
   useEffect(() => {
     if (!open || query.length < 1) {

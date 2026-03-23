@@ -56,7 +56,7 @@ export function useCreateEvaluation() {
       notes?: string;
     }) => apiClient.post<EvaluationEntry>('/api/evaluations', data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['evaluations'] });
+      qc.invalidateQueries({ queryKey: ['evaluations'] as const });
     },
   });
 }
@@ -74,7 +74,7 @@ export function useUpdateEvaluation() {
       notes?: string;
     }) => apiClient.put<EvaluationEntry>(`/api/evaluations/${id}`, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['evaluations'] });
+      qc.invalidateQueries({ queryKey: ['evaluations'] as const });
     },
   });
 }
@@ -84,7 +84,7 @@ export function useDeleteEvaluation() {
   return useMutation({
     mutationFn: (id: string) => apiClient.del(`/api/evaluations/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['evaluations'] });
+      qc.invalidateQueries({ queryKey: ['evaluations'] as const });
     },
   });
 }

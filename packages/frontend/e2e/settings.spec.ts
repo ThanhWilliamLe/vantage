@@ -4,20 +4,20 @@ import { uid } from './helpers.js';
 test.describe.serial('Settings Journey', () => {
   const suffix = uid();
 
-  test('settings page shows all 5 section tabs', async ({ page }) => {
+  test('settings page shows all 4 section tabs', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForLoadState('networkidle');
 
     // Verify the Settings heading
     await expect(page.locator('h1').filter({ hasText: 'Settings' })).toBeVisible({ timeout: 10_000 });
 
-    // Verify all 5 section buttons are visible in the settings tab nav (not the sidebar)
+    // Verify all 4 section buttons are visible in the settings tab nav (not the sidebar)
+    // Projects and Members have been moved to their own entity pages
     const settingsNav = page.locator('main nav ul');
-    await expect(settingsNav.locator('button', { hasText: 'Projects' })).toBeVisible({ timeout: 5_000 });
-    await expect(settingsNav.locator('button', { hasText: 'Members' })).toBeVisible({ timeout: 5_000 });
     await expect(settingsNav.locator('button', { hasText: 'Credentials' })).toBeVisible({ timeout: 5_000 });
     await expect(settingsNav.locator('button', { hasText: 'AI Provider' })).toBeVisible({ timeout: 5_000 });
     await expect(settingsNav.locator('button', { hasText: 'Access Password' })).toBeVisible({ timeout: 5_000 });
+    await expect(settingsNav.locator('button', { hasText: 'Data Management' })).toBeVisible({ timeout: 5_000 });
   });
 
   test('create a credential via the Credentials tab', async ({ page }) => {

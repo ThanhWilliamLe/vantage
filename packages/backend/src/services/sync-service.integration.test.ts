@@ -611,7 +611,7 @@ describe('SyncService', () => {
         },
       };
 
-      const result = await SyncService.syncAll(db, encryptionKey, factory);
+      const result = await SyncService.syncAll(db, encryptionKey, undefined, factory);
 
       // At least one synced, at least one failed
       expect(result.reposSynced).toBeGreaterThanOrEqual(1);
@@ -1187,7 +1187,7 @@ describe('SyncService', () => {
         },
       });
 
-      const result = await SyncService.syncAll(db, encryptionKey, factory);
+      const result = await SyncService.syncAll(db, encryptionKey, undefined, factory);
 
       // Should have synced at least the BB and Gitea repos we just created
       const bbResults = result.results.filter(
