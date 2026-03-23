@@ -28,8 +28,8 @@ You're the person responsible for code reviews — whether that's one large proj
 ```bash
 git clone https://github.com/ThanhWilliamLe/vantage.git
 cd vantage
-pnpm install
-pnpm build && pnpm start
+pnpm install   # also builds all packages automatically
+pnpm start
 ```
 
 Open [http://localhost:24020](http://localhost:24020). Add your repo paths in Settings → Projects, then scan.
@@ -57,6 +57,7 @@ Commit volume by member and project. Spot imbalances before they become problems
 - Multi-branch awareness — see work across all branches, not just main
 - Review workflow: pending → reviewed / flagged → communicated → resolved — completion guarantee your notifications tab can't give you
 - Incremental scanning — only fetches new commits, fast on daily use
+- Sync Now — granular controls: sync all, per-project, or per-repo. Optional date filter for first scan.
 - Git worktree support — works with repos that use `git worktree`
 
 ### Focus on what matters
@@ -110,7 +111,7 @@ Configure in Settings → AI Provider. AI triage sends commit diffs and messages
 ## Updating
 
 ```bash
-cd vantage && git pull && pnpm install && pnpm build && pnpm start
+cd vantage && git pull && pnpm install && pnpm start
 ```
 
 Your SQLite database and settings are preserved across updates.
