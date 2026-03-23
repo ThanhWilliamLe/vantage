@@ -27,7 +27,8 @@
     "vantage": "./bin/vantage.js"
   },
   "scripts": {
-    "dev": "pnpm --filter @twle/vantage-backend dev",
+    "postinstall": "pnpm --filter @twle/vantage-shared build && pnpm --filter @twle/vantage-backend build && pnpm --filter @twle/vantage-frontend build",
+    "dev": "pnpm run postinstall && pnpm --filter @twle/vantage-backend dev",
     "dev:frontend": "pnpm --filter @twle/vantage-frontend dev",
     "start": "node packages/backend/dist/server.js",
     "build": "pnpm -r build",

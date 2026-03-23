@@ -281,6 +281,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -335,6 +336,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -388,6 +390,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -432,6 +435,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -468,7 +472,7 @@ describe('SyncService', () => {
       });
 
       await expect(
-        SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory),
+        SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), undefined, factory),
       ).rejects.toThrow('rate limit');
 
       // Verify sync_state is failed
@@ -500,7 +504,7 @@ describe('SyncService', () => {
       });
 
       await expect(
-        SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory),
+        SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), undefined, factory),
       ).rejects.toThrow('authentication failed');
 
       const state = await db
@@ -641,7 +645,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const state = await db
         .select()
@@ -665,7 +675,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), goodFactory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        goodFactory,
+      );
 
       // Reset status to idle so we can run again
       await db
@@ -691,7 +707,13 @@ describe('SyncService', () => {
       });
 
       await expect(
-        SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), badFactory),
+        SyncService.syncRepository(
+          db,
+          encryptionKey,
+          await getRepoRow(repoId),
+          undefined,
+          badFactory,
+        ),
       ).rejects.toThrow();
 
       const stateAfterFail = await db
@@ -722,7 +744,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
@@ -751,7 +779,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
@@ -809,6 +843,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -868,7 +903,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
@@ -920,7 +961,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
@@ -980,6 +1027,7 @@ describe('SyncService', () => {
         db,
         encryptionKey,
         await getRepoRow(repoId),
+        undefined,
         factory,
       );
 
@@ -1041,7 +1089,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
@@ -1095,7 +1149,13 @@ describe('SyncService', () => {
         },
       });
 
-      await SyncService.syncRepository(db, encryptionKey, await getRepoRow(repoId), factory);
+      await SyncService.syncRepository(
+        db,
+        encryptionKey,
+        await getRepoRow(repoId),
+        undefined,
+        factory,
+      );
 
       const pr = await db
         .select()
