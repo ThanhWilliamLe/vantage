@@ -288,6 +288,18 @@ export function runMigrations(sqlite: Database.Database) {
     // Column already exists — ignore
   }
 
+  // v1.3 migration: identity_suggestion_dismissal table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS identity_suggestion_dismissal (
+      id TEXT PRIMARY KEY,
+      author_raw TEXT NOT NULL,
+      suggested_member_id TEXT NOT NULL,
+      dismissed_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_isd_author_member
+      ON identity_suggestion_dismissal(author_raw, suggested_member_id);
+  `);
+
   // v1.1 migration: add source column to evaluation_entry
   try {
     sqlite
@@ -304,6 +316,20 @@ export function runMigrations(sqlite: Database.Database) {
       .run();
   } catch {
     // Index already exists — ignore
+  }
+
+  // v1.3 migration: add date_range_start to evaluation_entry
+  try {
+    sqlite.prepare('ALTER TABLE evaluation_entry ADD COLUMN date_range_start TEXT').run();
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // v1.3 migration: add aliases to member
+  try {
+    sqlite.prepare('ALTER TABLE member ADD COLUMN aliases TEXT').run();
+  } catch {
+    // Column already exists — ignore
   }
 
   // Seed app_config singleton if not present

@@ -4,6 +4,7 @@ import {
   useMemberAssignments,
   useCodeChanges,
   useProjects,
+  useUnmappedAuthors,
 } from '../../hooks/api/core.js';
 import { useEvaluations } from '../../hooks/api/evaluations.js';
 import {
@@ -33,6 +34,7 @@ export function MemberDetail() {
   const deleteMember = useDeleteMember();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [activeTab, setActiveTab] = useState<'settings' | 'commits' | 'evaluations'>('settings');
 
   const projectMap = new Map(projects.data?.map((p) => [p.id, p.name]) ?? []);
 
@@ -198,138 +200,175 @@ export function MemberDetail() {
         </div>
       )}
 
-      {/* Pending reviews */}
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
-          Pending Reviews ({pendingReviews.data?.total ?? 0})
-        </h2>
-        {pendingReviews.isLoading ? (
-          <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
-        ) : (pendingReviews.data?.items?.length ?? 0) === 0 ? (
-          <p className="text-sm text-text-tertiary">No pending reviews for this member.</p>
-        ) : (
-          <div className="space-y-2">
-            {pendingReviews.data!.items.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => navigate({ to: '/reviews' })}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm cursor-pointer hover:bg-surface-overlay transition-colors"
-              >
-                <div>
-                  <span className="text-sm text-text-primary">{item.title}</span>
-                  <span className="ml-2 text-xs text-text-tertiary">
-                    {format(new Date(item.authoredAt), 'MMM d')}
-                  </span>
-                  {item.branch && (
-                    <span className="ml-2 text-xs px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
-                      {item.branch}
+      {/* Tab bar */}
+      <div className="flex gap-0 border-b border-border mb-6">
+        {(['settings', 'commits', 'evaluations'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === tab
+                ? 'border-accent text-accent-text'
+                : 'border-transparent text-text-tertiary hover:text-text-secondary'
+            }`}
+          >
+            {tab === 'settings' ? 'Settings' : tab === 'commits' ? 'Commits' : 'Evaluations'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'settings' && (
+        <>
+          {/* Aliases (internal — for identity matching) */}
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-1">
+              Aliases
+            </h2>
+            <p className="text-xs text-text-tertiary mb-3">
+              Comma-separated nicknames for identity matching (e.g., "Will, WL"). Not displayed
+              publicly.
+            </p>
+            <AliasEditor memberId={m.id} currentAliases={m.aliases} />
+          </section>
+
+          {/* Identity mappings */}
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-1">
+              Identity Mappings
+            </h2>
+            <p className="text-xs text-text-tertiary mb-3">
+              Link this member's git usernames and emails so their commits are attributed correctly
+              across platforms.
+            </p>
+            <MemberIdentitySection memberId={id} />
+          </section>
+
+          {/* Project assignments */}
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+              Project Assignments
+            </h2>
+            <AssignToProjectForm
+              memberId={id}
+              projects={projects.data ?? []}
+              onAssigned={() => assignments.refetch()}
+            />
+            {assignments.isLoading ? (
+              <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+            ) : (assignments.data?.length ?? 0) === 0 ? (
+              <p className="text-sm text-text-tertiary">No project assignments.</p>
+            ) : (
+              <div className="space-y-2">
+                {assignments.data!.map((a) => (
+                  <AssignmentRow
+                    key={a.id}
+                    assignment={a}
+                    projectName={projectMap.get(a.projectId) ?? a.projectId}
+                    onNavigate={() =>
+                      navigate({ to: '/projects/$id', params: { id: a.projectId } })
+                    }
+                    onEnded={() => assignments.refetch()}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {activeTab === 'commits' && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+            Pending Reviews ({pendingReviews.data?.total ?? 0})
+          </h2>
+          {pendingReviews.isLoading ? (
+            <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+          ) : (pendingReviews.data?.items?.length ?? 0) === 0 ? (
+            <p className="text-sm text-text-tertiary">No pending reviews for this member.</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingReviews.data!.items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => navigate({ to: '/reviews' })}
+                  className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm cursor-pointer hover:bg-surface-overlay transition-colors"
+                >
+                  <div>
+                    <span className="text-sm text-text-primary">{item.title}</span>
+                    <span className="ml-2 text-xs text-text-tertiary">
+                      {format(new Date(item.authoredAt), 'MMM d')}
+                    </span>
+                    {item.branch && (
+                      <span className="ml-2 text-xs px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
+                        {item.branch}
+                      </span>
+                    )}
+                  </div>
+                  {item.aiRiskLevel && (
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        item.aiRiskLevel === 'high'
+                          ? 'bg-danger/20 text-danger'
+                          : item.aiRiskLevel === 'medium'
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-success/20 text-success'
+                      }`}
+                    >
+                      {item.aiRiskLevel}
                     </span>
                   )}
                 </div>
-                {item.aiRiskLevel && (
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded ${
-                      item.aiRiskLevel === 'high'
-                        ? 'bg-danger/20 text-danger'
-                        : item.aiRiskLevel === 'medium'
-                          ? 'bg-warning/20 text-warning'
-                          : 'bg-success/20 text-success'
-                    }`}
-                  >
-                    {item.aiRiskLevel}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* Identity mappings */}
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-1">
-          Identity Mappings
-        </h2>
-        <p className="text-xs text-text-tertiary mb-3">
-          Link this member's git usernames and emails so their commits are attributed correctly
-          across platforms.
-        </p>
-        <MemberIdentitySection memberId={id} />
-      </section>
-
-      {/* Project assignments */}
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
-          Project Assignments
-        </h2>
-        <AssignToProjectForm
-          memberId={id}
-          projects={projects.data ?? []}
-          onAssigned={() => assignments.refetch()}
-        />
-        {assignments.isLoading ? (
-          <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
-        ) : (assignments.data?.length ?? 0) === 0 ? (
-          <p className="text-sm text-text-tertiary">No project assignments.</p>
-        ) : (
-          <div className="space-y-2">
-            {assignments.data!.map((a) => (
-              <AssignmentRow
-                key={a.id}
-                assignment={a}
-                projectName={projectMap.get(a.projectId) ?? a.projectId}
-                onNavigate={() => navigate({ to: '/projects/$id', params: { id: a.projectId } })}
-                onEnded={() => assignments.refetch()}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Evaluation history */}
-      <section>
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
-          Evaluation History
-        </h2>
-        {evaluations.isLoading ? (
-          <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
-        ) : (evaluations.data?.items?.length ?? 0) === 0 ? (
-          <p className="text-sm text-text-tertiary">
-            No evaluations yet. Create one in{' '}
-            <button
-              onClick={() => navigate({ to: '/evaluations' })}
-              className="text-accent-text hover:text-accent-hover"
-            >
-              Evaluations
-            </button>
-            .
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {evaluations.data!.items.map((ev) => (
-              <div
-                key={ev.id}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
+      {activeTab === 'evaluations' && (
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+            Evaluation History
+          </h2>
+          {evaluations.isLoading ? (
+            <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+          ) : (evaluations.data?.items?.length ?? 0) === 0 ? (
+            <p className="text-sm text-text-tertiary">
+              No evaluations yet. Create one in{' '}
+              <button
+                onClick={() => navigate({ to: '/evaluations' })}
+                className="text-accent-text hover:text-accent-hover"
               >
-                <div>
-                  <span className="text-sm text-text-primary">
-                    {ev.description || 'No description'}
-                  </span>
-                  <span className="ml-2 text-xs text-text-tertiary">{ev.date}</span>
+                Evaluations
+              </button>
+              .
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {evaluations.data!.items.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
+                >
+                  <div>
+                    <span className="text-sm text-text-primary">
+                      {ev.description || 'No description'}
+                    </span>
+                    <span className="ml-2 text-xs text-text-tertiary">{ev.date}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {ev.workloadScore != null && (
+                      <span className="text-xs text-text-secondary">Score: {ev.workloadScore}</span>
+                    )}
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-surface-overlay text-text-secondary">
+                      {ev.type}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {ev.workloadScore != null && (
-                    <span className="text-xs text-text-secondary">Score: {ev.workloadScore}</span>
-                  )}
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-surface-overlay text-text-secondary">
-                    {ev.type}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -342,6 +381,7 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
   const removeIdentity = useRemoveIdentity();
   const [platform, setPlatform] = useState<string>('github');
   const [value, setValue] = useState('');
+  const unmappedAuthors = useUnmappedAuthors(platform);
 
   function handleAdd() {
     if (!value.trim()) return;
@@ -387,15 +427,20 @@ function MemberIdentitySection({ memberId }: { memberId: string }) {
           <option value="gitlab">GitLab</option>
           <option value="email">Email</option>
         </select>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={platform === 'email' ? 'email@example.com' : 'username'}
-          className="flex-1 px-3 py-2 bg-surface border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleAdd();
-          }}
-        />
+        <div className="flex-1">
+          <SearchableSelect
+            options={[
+              ...(unmappedAuthors.data?.map((a) => ({
+                value: a.value,
+                label: `${a.value} (${a.commitCount} commits)`,
+              })) ?? []),
+            ]}
+            value={value}
+            onChange={setValue}
+            placeholder={platform === 'email' ? 'email@example.com' : 'username'}
+            className="w-full"
+          />
+        </div>
         <button
           onClick={handleAdd}
           disabled={!value.trim() || addIdentity.isPending}
@@ -569,6 +614,45 @@ function AssignmentRow({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function AliasEditor({
+  memberId,
+  currentAliases,
+}: {
+  memberId: string;
+  currentAliases: string | null;
+}) {
+  const updateMember = useUpdateMember();
+  const [aliases, setAliases] = useState(currentAliases ?? '');
+
+  function handleSave() {
+    updateMember.mutate(
+      { id: memberId, aliases: aliases.trim() || '' },
+      { onSuccess: () => toast.success('Aliases updated') },
+    );
+  }
+
+  return (
+    <div className="flex gap-2">
+      <input
+        value={aliases}
+        onChange={(e) => setAliases(e.target.value)}
+        placeholder="e.g., Will, WL, william.le"
+        className="flex-1 px-3 py-2 bg-surface border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSave();
+        }}
+      />
+      <button
+        onClick={handleSave}
+        disabled={updateMember.isPending}
+        className="px-4 py-2 bg-accent text-white text-sm rounded-full hover:bg-accent-hover disabled:opacity-50 transition-colors"
+      >
+        Save
+      </button>
     </div>
   );
 }

@@ -310,6 +310,18 @@ export function useAcceptSuggestion() {
   });
 }
 
+export function useRejectSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { authorRaw: string; suggestedMemberId: string }) =>
+      apiClient.post('/api/members/identity-suggestions/reject', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.identitySuggestions });
+      qc.invalidateQueries({ queryKey: ['members'] as const });
+    },
+  });
+}
+
 // ── Sync hooks (Sync Now feature) ───────────────────────
 
 /** Trigger scan of local repos with optional filters. */
@@ -386,5 +398,18 @@ export function useSyncStatus(enabled = false) {
     queryFn: () => apiClient.get<SyncState[]>('/api/sync/status'),
     enabled,
     refetchInterval: 3000,
+  });
+}
+
+// ── Unmapped Authors (FB-15 Identity Mapping Dropdown) ───
+
+export function useUnmappedAuthors(platform: string) {
+  return useQuery({
+    queryKey: ['unmapped-authors', platform] as const,
+    queryFn: () =>
+      apiClient.get<Array<{ value: string; commitCount: number }>>(
+        `/api/code-changes/unmapped-authors?platform=${platform}`,
+      ),
+    enabled: !!platform,
   });
 }

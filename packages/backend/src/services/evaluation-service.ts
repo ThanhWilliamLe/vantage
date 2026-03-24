@@ -9,6 +9,7 @@ import type { DrizzleDB } from '../data/db.js';
 interface CreateDailyInput {
   memberId: string;
   date: string;
+  dateRangeStart?: string;
   projectIds: string[];
   description?: string;
   workloadScore?: number;
@@ -95,6 +96,7 @@ export const EvaluationService = {
       memberId: input.memberId,
       type: 'daily' as const,
       date: input.date,
+      dateRangeStart: input.dateRangeStart ?? null,
       quarter: null,
       projectIds: JSON.stringify(input.projectIds),
       description: input.description ?? null,
@@ -309,6 +311,7 @@ export const EvaluationService = {
       memberId: input.memberId,
       type: 'quarterly' as const,
       date,
+      dateRangeStart: null,
       quarter: input.quarter,
       projectIds: JSON.stringify(input.projectIds),
       description: input.description ?? null,

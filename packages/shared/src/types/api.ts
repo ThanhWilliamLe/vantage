@@ -18,11 +18,20 @@ export interface PaginatedResponse<T> {
   offset: number;
 }
 
+export interface AIActiveItem {
+  codeChangeId: string;
+  providerName: string;
+  providerType: string;
+  repoPath: string;
+  startedAt: string;
+}
+
 export interface AIQueueStatus {
   total: number;
   completed: number;
   failed: number;
   processing: boolean;
+  activeItems?: AIActiveItem[];
 }
 
 /** Filters for scan and sync operations. */

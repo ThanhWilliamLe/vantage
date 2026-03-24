@@ -60,6 +60,7 @@ export const aiProvider = sqliteTable('ai_provider', {
 export const member = sqliteTable('member', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  aliases: text('aliases'),
   status: text('status').notNull().default('active'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -178,6 +179,7 @@ export const evaluationEntry = sqliteTable(
       .references(() => member.id),
     type: text('type').notNull(),
     date: text('date').notNull(),
+    dateRangeStart: text('date_range_start'),
     quarter: text('quarter'),
     projectIds: text('project_ids').notNull(),
     description: text('description'),
@@ -254,6 +256,18 @@ export const syncState = sqliteTable('sync_state', {
   errorMessage: text('error_message'),
   updatedAt: text('updated_at').notNull(),
 });
+
+// ─── identity_suggestion_dismissal ──────────
+export const identitySuggestionDismissal = sqliteTable(
+  'identity_suggestion_dismissal',
+  {
+    id: text('id').primaryKey(),
+    authorRaw: text('author_raw').notNull(),
+    suggestedMemberId: text('suggested_member_id').notNull(),
+    dismissedAt: text('dismissed_at').notNull(),
+  },
+  (table) => [uniqueIndex('idx_isd_author_member').on(table.authorRaw, table.suggestedMemberId)],
+);
 
 // ─── app_config ──────────────────────────────────
 export const appConfig = sqliteTable('app_config', {

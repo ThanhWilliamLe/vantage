@@ -16,11 +16,20 @@ import { extractJSON, parseTier1Response, parseTier2Response } from './parsers.j
 import type { Tier2Result } from './parsers.js';
 import { buildTier1Prompt, buildTier2Prompt } from './prompts.js';
 import { AIProcessingQueue } from './processing-queue.js';
-import type { AIQueueStatus } from './processing-queue.js';
+import type { AIQueueStatus, AIActiveItem } from './processing-queue.js';
 
 // ─── Singleton Queue ────────────────────────────
 
 const queue = new AIProcessingQueue();
+
+// ─── Active AI Operation Tracking ───────────────
+
+const activeAnalyses = new Map<string, AIActiveItem>();
+
+export interface ProviderMeta {
+  providerName: string;
+  providerType: string;
+}
 
 // ─── Service ────────────────────────────────────
 
@@ -33,6 +42,7 @@ export const AIService = {
     db: DrizzleDB,
     provider: AIProviderInterface,
     codeChangeId: string,
+    providerMeta?: ProviderMeta & { repoPath?: string },
   ): Promise<void> {
     const change = await db
       .select()
@@ -55,24 +65,37 @@ export const AIService = {
       throw new NotFoundError('Repository', change.repoId);
     }
 
-    const { diff } = await GitReader.getDiffForAPI(repo.localPath, change.platformId);
-    const prompt = buildTier1Prompt(change.title, change.body, diff);
+    // Track active operation for progress reporting
+    activeAnalyses.set(codeChangeId, {
+      codeChangeId,
+      providerName: providerMeta?.providerName ?? 'unknown',
+      providerType: providerMeta?.providerType ?? 'unknown',
+      repoPath: providerMeta?.repoPath || repo.localPath || 'unknown',
+      startedAt: new Date().toISOString(),
+    });
 
-    const raw = await provider.generate(prompt, { maxTokens: 300, timeout: 30_000 });
-    const parsed = extractJSON(raw);
-    const result = parseTier1Response(parsed);
+    try {
+      const { diff } = await GitReader.getDiffForAPI(repo.localPath, change.platformId);
+      const prompt = buildTier1Prompt(change.title, change.body, diff);
 
-    const now = new Date().toISOString();
-    await db
-      .update(schema.codeChange)
-      .set({
-        aiSummary: result.summary,
-        aiCategory: result.category,
-        aiRiskLevel: result.riskLevel,
-        aiGeneratedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(schema.codeChange.id, codeChangeId));
+      const raw = await provider.generate(prompt, { maxTokens: 300, timeout: 30_000 });
+      const parsed = extractJSON(raw);
+      const result = parseTier1Response(parsed);
+
+      const now = new Date().toISOString();
+      await db
+        .update(schema.codeChange)
+        .set({
+          aiSummary: result.summary,
+          aiCategory: result.category,
+          aiRiskLevel: result.riskLevel,
+          aiGeneratedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(schema.codeChange.id, codeChangeId));
+    } finally {
+      activeAnalyses.delete(codeChangeId);
+    }
   },
 
   /**
@@ -85,6 +108,7 @@ export const AIService = {
     codeChangeId: string,
     repoPath: string,
     force = false,
+    providerMeta?: ProviderMeta,
   ): Promise<Tier2Result> {
     const change = await db
       .select()
@@ -107,53 +131,97 @@ export const AIService = {
       return { findings: JSON.parse(existing.findings) };
     }
 
-    const { diff } = await GitReader.getDiffForAPI(repoPath, change.platformId);
-    const prompt = buildTier2Prompt(change.title, change.body, diff, []);
+    // Track active analysis for progress reporting
+    activeAnalyses.set(codeChangeId, {
+      codeChangeId,
+      providerName: providerMeta?.providerName ?? 'unknown',
+      providerType: providerMeta?.providerType ?? 'unknown',
+      repoPath,
+      startedAt: new Date().toISOString(),
+    });
 
-    const raw = await provider.generate(prompt, { maxTokens: 2000, timeout: 120_000 });
-    const parsed = extractJSON(raw);
-    const result = parseTier2Response(parsed);
+    try {
+      const { diff } = await GitReader.getDiffForAPI(repoPath, change.platformId);
+      const prompt = buildTier2Prompt(change.title, change.body, diff, []);
 
-    const now = new Date().toISOString();
+      const raw = await provider.generate(prompt, { maxTokens: 2000, timeout: 120_000 });
+      const parsed = extractJSON(raw);
+      const result = parseTier2Response(parsed);
 
-    if (existing) {
-      // Replace existing analysis (force mode)
-      await db
-        .update(schema.deepAnalysis)
-        .set({
+      const now = new Date().toISOString();
+
+      if (existing) {
+        // Replace existing analysis (force mode)
+        await db
+          .update(schema.deepAnalysis)
+          .set({
+            findings: JSON.stringify(result.findings),
+            analyzedAt: now,
+          })
+          .where(eq(schema.deepAnalysis.codeChangeId, codeChangeId));
+      } else {
+        // Create new analysis
+        await db.insert(schema.deepAnalysis).values({
+          id: ulid(),
+          codeChangeId,
           findings: JSON.stringify(result.findings),
           analyzedAt: now,
-        })
-        .where(eq(schema.deepAnalysis.codeChangeId, codeChangeId));
-    } else {
-      // Create new analysis
-      await db.insert(schema.deepAnalysis).values({
-        id: ulid(),
-        codeChangeId,
-        findings: JSON.stringify(result.findings),
-        analyzedAt: now,
-        createdAt: now,
-      });
-    }
+          createdAt: now,
+        });
+      }
 
-    return result;
+      return result;
+    } finally {
+      activeAnalyses.delete(codeChangeId);
+    }
+  },
+
+  /**
+   * Track an external AI operation (e.g., review-notes generation).
+   */
+  trackOperation(
+    id: string,
+    meta: { providerName: string; providerType: string; repoPath: string },
+  ): void {
+    activeAnalyses.set(id, {
+      codeChangeId: id,
+      ...meta,
+      startedAt: new Date().toISOString(),
+    });
+  },
+
+  /**
+   * Remove tracking for an AI operation.
+   */
+  untrackOperation(id: string): void {
+    activeAnalyses.delete(id);
   },
 
   /**
    * Get current queue status.
    */
   getQueueStatus(): AIQueueStatus {
-    return queue.getStatus();
+    const status = queue.getStatus();
+    const items = Array.from(activeAnalyses.values());
+    if (items.length > 0) {
+      status.activeItems = items;
+    }
+    return status;
   },
 
   /**
    * Start background Tier 1 processing.
    * Finds code_changes where ai_generated_at IS NULL and enqueues them.
    */
-  startProcessing(db: DrizzleDB, provider: AIProviderInterface): void {
+  startProcessing(db: DrizzleDB, provider: AIProviderInterface, providerMeta?: ProviderMeta): void {
     // Configure the queue processor
     queue.setProcessor(async (codeChangeId: string) => {
-      await AIService.generateTier1(db, provider, codeChangeId);
+      await AIService.generateTier1(
+        db,
+        provider,
+        codeChangeId,
+        providerMeta ? { ...providerMeta } : undefined,
+      );
     });
 
     // Configure failure handler — sets ai_generated_at to prevent re-queue
@@ -190,6 +258,15 @@ export const AIService = {
    */
   stopProcessing(): void {
     queue.stop();
+  },
+
+  /**
+   * Cleanup all AI resources for graceful shutdown.
+   * Stops the queue and clears active analysis tracking.
+   */
+  cleanup(): void {
+    queue.stop();
+    activeAnalyses.clear();
   },
 
   /**

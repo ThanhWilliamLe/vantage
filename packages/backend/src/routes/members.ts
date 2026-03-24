@@ -4,11 +4,14 @@ import { ValidationError } from '../errors/index.js';
 
 export async function memberRoutes(app: FastifyInstance) {
   app.post('/api/members', async (request, reply) => {
-    const { name } = request.body as { name?: string };
+    const { name, aliases } = request.body as { name?: string; aliases?: string };
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       throw new ValidationError('Name is required', { field: 'name' });
     }
-    const member = await MemberService.create(app.db, { name: name.trim() });
+    const member = await MemberService.create(app.db, {
+      name: name.trim(),
+      aliases: aliases?.trim() || undefined,
+    });
     return reply.status(201).send(member);
   });
 
@@ -26,8 +29,12 @@ export async function memberRoutes(app: FastifyInstance) {
 
   app.put('/api/members/:id', async (request) => {
     const { id } = request.params as { id: string };
-    const { name, status } = request.body as { name?: string; status?: string };
-    const member = await MemberService.update(app.db, id, { name, status });
+    const { name, status, aliases } = request.body as {
+      name?: string;
+      status?: string;
+      aliases?: string;
+    };
+    const member = await MemberService.update(app.db, id, { name, status, aliases });
     return member;
   });
 

@@ -96,6 +96,10 @@ export function SearchableSelect({
         select(filtered[highlightIndex].value);
       } else if (filtered.length === 1) {
         select(filtered[0].value);
+      } else if (query.trim()) {
+        onChange(query.trim());
+        setOpen(false);
+        setQuery('');
       }
     }
   }

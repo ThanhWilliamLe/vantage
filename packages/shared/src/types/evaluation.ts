@@ -3,6 +3,7 @@ export interface EvaluationEntry {
   memberId: string;
   type: 'daily' | 'quarterly';
   date: string;
+  dateRangeStart: string | null;
   quarter: string | null;
   projectIds: string[];
   description: string | null;

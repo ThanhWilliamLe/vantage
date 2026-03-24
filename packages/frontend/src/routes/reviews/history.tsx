@@ -213,208 +213,212 @@ export function ReviewHistory() {
       )}
 
       {!isLoading && items.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Title</th>
-                <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Author</th>
-                <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Status</th>
-                <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Date</th>
-                <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Changes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`border-b border-border-subtle hover:bg-surface-raised cursor-pointer transition-colors ${selectedId === item.id ? 'bg-surface-overlay' : ''}`}
-                >
-                  <td className="px-3 py-2.5">
-                    <span className="text-text-primary">{item.title}</span>
-                    {item.aiSummary && (
-                      <p className="text-xs text-text-tertiary mt-0.5 line-clamp-1">
-                        {item.aiSummary}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-text-secondary">
-                    {item.authorMemberId ? (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={{ minHeight: '60vh' }}>
+          {/* List pane */}
+          <div className="lg:col-span-2 overflow-y-auto max-h-[70vh]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Title</th>
+                  <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Author</th>
+                  <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Status</th>
+                  <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Date</th>
+                  <th className="px-3 py-2 text-xs text-text-tertiary font-medium">Changes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => setSelectedId(item.id)}
+                    className={`border-b border-border-subtle hover:bg-surface-raised cursor-pointer transition-colors ${selectedId === item.id ? 'bg-surface-overlay' : ''}`}
+                  >
+                    <td className="px-3 py-2.5">
+                      <span className="text-text-primary">{item.title}</span>
+                      {item.aiSummary && (
+                        <p className="text-xs text-text-tertiary mt-0.5 line-clamp-1">
+                          {item.aiSummary}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-text-secondary">
+                      {item.authorMemberId ? (
+                        <Link
+                          to="/members/$id"
+                          params={{ id: item.authorMemberId }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-accent-text hover:text-accent-hover"
+                        >
+                          {item.authorName ?? item.authorRaw}
+                        </Link>
+                      ) : (
+                        (item.authorName ?? item.authorRaw)
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge status={item.status} />
+                    </td>
+                    <td className="px-3 py-2.5 text-text-tertiary">
+                      {format(new Date(item.authoredAt), 'MMM d, yyyy')}
+                    </td>
+                    <td className="px-3 py-2.5 text-text-tertiary">
+                      +{item.linesAdded} -{item.linesDeleted}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!searchQuery && history.data && history.data.total > history.data.items.length && (
+              <p className="mt-4 text-xs text-text-tertiary text-center">
+                Showing {history.data.items.length} of {history.data.total} results
+              </p>
+            )}
+          </div>
+
+          {/* Detail pane */}
+          <div className="lg:col-span-3 bg-surface-raised border border-border rounded-sm p-5 overflow-y-auto max-h-[70vh]">
+            {!selectedId ? (
+              <div className="flex items-center justify-center h-full text-text-tertiary text-sm">
+                Select an item to view details
+              </div>
+            ) : detail.isLoading ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-6 w-2/3 bg-surface-overlay rounded" />
+                <div className="h-4 w-1/2 bg-surface-overlay rounded" />
+                <div className="h-20 bg-surface-overlay rounded" />
+              </div>
+            ) : detail.data ? (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-text-tertiary">Detail View</span>
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="text-xs text-text-tertiary hover:text-text-secondary"
+                  >
+                    Close
+                  </button>
+                </div>
+                <h2 className="text-lg font-medium text-text-primary">{detail.data.title}</h2>
+                <div className="flex flex-wrap gap-3 mt-2 text-xs text-text-tertiary">
+                  <span>
+                    By{' '}
+                    {detail.data.authorMemberId ? (
                       <Link
                         to="/members/$id"
-                        params={{ id: item.authorMemberId }}
-                        onClick={(e) => e.stopPropagation()}
+                        params={{ id: detail.data.authorMemberId }}
                         className="text-accent-text hover:text-accent-hover"
                       >
-                        {item.authorName ?? item.authorRaw}
+                        {detail.data.authorName ?? detail.data.authorRaw}
                       </Link>
                     ) : (
-                      (item.authorName ?? item.authorRaw)
+                      (detail.data.authorName ?? detail.data.authorRaw)
                     )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <StatusBadge status={item.status} />
-                  </td>
-                  <td className="px-3 py-2.5 text-text-tertiary">
-                    {format(new Date(item.authoredAt), 'MMM d, yyyy')}
-                  </td>
-                  <td className="px-3 py-2.5 text-text-tertiary">
-                    +{item.linesAdded} -{item.linesDeleted}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {!searchQuery && history.data && history.data.total > history.data.items.length && (
-        <p className="mt-4 text-xs text-text-tertiary text-center">
-          Showing {history.data.items.length} of {history.data.total} results
-        </p>
-      )}
-
-      {/* Detail panel */}
-      {selectedId && (
-        <div className="mt-4 bg-surface-raised border border-border rounded-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-text-tertiary">Detail View</span>
-            <button
-              onClick={() => setSelectedId(null)}
-              className="text-xs text-text-tertiary hover:text-text-secondary"
-            >
-              Close
-            </button>
-          </div>
-          {detail.isLoading ? (
-            <div className="animate-pulse space-y-3">
-              <div className="h-6 w-2/3 bg-surface-overlay rounded" />
-              <div className="h-4 w-1/2 bg-surface-overlay rounded" />
-              <div className="h-20 bg-surface-overlay rounded" />
-            </div>
-          ) : detail.data ? (
-            <div>
-              <h2 className="text-lg font-medium text-text-primary">{detail.data.title}</h2>
-              <div className="flex flex-wrap gap-3 mt-2 text-xs text-text-tertiary">
-                <span>
-                  By{' '}
-                  {detail.data.authorMemberId ? (
-                    <Link
-                      to="/members/$id"
-                      params={{ id: detail.data.authorMemberId }}
-                      className="text-accent-text hover:text-accent-hover"
-                    >
-                      {detail.data.authorName ?? detail.data.authorRaw}
-                    </Link>
-                  ) : (
-                    (detail.data.authorName ?? detail.data.authorRaw)
-                  )}
-                </span>
-                <span>{format(new Date(detail.data.authoredAt), 'MMM d, yyyy')}</span>
-                <span>
-                  +{detail.data.linesAdded} -{detail.data.linesDeleted}
-                </span>
-                <span>{detail.data.filesChanged} files</span>
-                <StatusBadge status={detail.data.status} />
-                {detail.data.aiRiskLevel && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded ${
-                      detail.data.aiRiskLevel === 'high'
-                        ? 'bg-danger/20 text-danger'
-                        : detail.data.aiRiskLevel === 'medium'
-                          ? 'bg-warning/20 text-warning'
-                          : 'bg-success/20 text-success'
-                    }`}
-                  >
-                    {detail.data.aiRiskLevel} risk
                   </span>
-                )}
-                {detail.data.aiCategory && (
-                  <span className="px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
-                    {detail.data.aiCategory}
-                  </span>
-                )}
-              </div>
-
-              {detail.data.aiSummary && (
-                <div className="mt-4 p-3 bg-surface-overlay border border-border-subtle rounded text-sm text-text-secondary">
-                  <span className="text-xs text-text-tertiary block mb-1">AI Summary</span>
-                  {detail.data.aiSummary}
-                </div>
-              )}
-
-              {detail.data.body && (
-                <div className="mt-4">
-                  <span className="text-xs text-text-tertiary">Description</span>
-                  <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
-                    {detail.data.body}
-                  </p>
-                </div>
-              )}
-
-              {detail.data.taskIds && detail.data.taskIds.length > 0 && (
-                <div className="mt-4">
-                  <span className="text-xs text-text-tertiary">Linked Tasks</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {detail.data.taskIds.map((task) => {
-                      const taskId = typeof task === 'string' ? task : task.taskId;
-                      const taskUrl = typeof task === 'string' ? null : task.url;
-                      return taskUrl ? (
-                        <a
-                          key={taskId}
-                          href={taskUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded hover:bg-accent/20 transition-colors underline"
-                        >
-                          {taskId}
-                        </a>
-                      ) : (
-                        <span
-                          key={taskId}
-                          className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded"
-                        >
-                          {taskId}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {detail.data.reviewNotes && (
-                <div className="mt-4">
-                  <span className="text-xs text-text-tertiary">Review Notes</span>
-                  <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
-                    {detail.data.reviewNotes}
-                  </p>
-                </div>
-              )}
-
-              {/* Flagged lifecycle actions */}
-              {(detail.data.status === 'flagged' || detail.data.status === 'communicated') && (
-                <HistoryFlaggedActions item={detail.data} />
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-tertiary">
-                {detail.data.reviewedAt && (
-                  <span>Reviewed: {format(new Date(detail.data.reviewedAt), 'MMM d, yyyy')}</span>
-                )}
-                {detail.data.flaggedAt && (
-                  <span>Flagged: {format(new Date(detail.data.flaggedAt), 'MMM d, yyyy')}</span>
-                )}
-                {detail.data.communicatedAt && (
+                  <span>{format(new Date(detail.data.authoredAt), 'MMM d, yyyy')}</span>
                   <span>
-                    Communicated: {format(new Date(detail.data.communicatedAt), 'MMM d, yyyy')}
+                    +{detail.data.linesAdded} -{detail.data.linesDeleted}
                   </span>
+                  <span>{detail.data.filesChanged} files</span>
+                  <StatusBadge status={detail.data.status} />
+                  {detail.data.aiRiskLevel && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded ${
+                        detail.data.aiRiskLevel === 'high'
+                          ? 'bg-danger/20 text-danger'
+                          : detail.data.aiRiskLevel === 'medium'
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-success/20 text-success'
+                      }`}
+                    >
+                      {detail.data.aiRiskLevel} risk
+                    </span>
+                  )}
+                  {detail.data.aiCategory && (
+                    <span className="px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
+                      {detail.data.aiCategory}
+                    </span>
+                  )}
+                </div>
+
+                {detail.data.aiSummary && (
+                  <div className="mt-4 p-3 bg-surface-overlay border border-border-subtle rounded text-sm text-text-secondary">
+                    <span className="text-xs text-text-tertiary block mb-1">AI Summary</span>
+                    {detail.data.aiSummary}
+                  </div>
                 )}
-                {detail.data.resolvedAt && (
-                  <span>Resolved: {format(new Date(detail.data.resolvedAt), 'MMM d, yyyy')}</span>
+
+                {detail.data.body && (
+                  <div className="mt-4">
+                    <span className="text-xs text-text-tertiary">Description</span>
+                    <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
+                      {detail.data.body}
+                    </p>
+                  </div>
                 )}
+
+                {detail.data.taskIds && detail.data.taskIds.length > 0 && (
+                  <div className="mt-4">
+                    <span className="text-xs text-text-tertiary">Linked Tasks</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {detail.data.taskIds.map((task) => {
+                        const taskId = typeof task === 'string' ? task : task.taskId;
+                        const taskUrl = typeof task === 'string' ? null : task.url;
+                        return taskUrl ? (
+                          <a
+                            key={taskId}
+                            href={taskUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded hover:bg-accent/20 transition-colors underline"
+                          >
+                            {taskId}
+                          </a>
+                        ) : (
+                          <span
+                            key={taskId}
+                            className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded"
+                          >
+                            {taskId}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {detail.data.reviewNotes && (
+                  <div className="mt-4">
+                    <span className="text-xs text-text-tertiary">Review Notes</span>
+                    <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
+                      {detail.data.reviewNotes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Flagged lifecycle actions */}
+                {(detail.data.status === 'flagged' || detail.data.status === 'communicated') && (
+                  <HistoryFlaggedActions item={detail.data} />
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-tertiary">
+                  {detail.data.reviewedAt && (
+                    <span>Reviewed: {format(new Date(detail.data.reviewedAt), 'MMM d, yyyy')}</span>
+                  )}
+                  {detail.data.flaggedAt && (
+                    <span>Flagged: {format(new Date(detail.data.flaggedAt), 'MMM d, yyyy')}</span>
+                  )}
+                  {detail.data.communicatedAt && (
+                    <span>
+                      Communicated: {format(new Date(detail.data.communicatedAt), 'MMM d, yyyy')}
+                    </span>
+                  )}
+                  {detail.data.resolvedAt && (
+                    <span>Resolved: {format(new Date(detail.data.resolvedAt), 'MMM d, yyyy')}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       )}
     </div>

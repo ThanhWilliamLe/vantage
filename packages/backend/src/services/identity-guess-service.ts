@@ -43,23 +43,26 @@ export const IdentityGuessService = {
       memberIdentities.get(id.memberId)!.push({ platform: id.platform, value: id.value });
     }
 
+    // Load dismissed suggestions
+    const dismissals = await db.select().from(schema.identitySuggestionDismissal).all();
+    const dismissedSet = new Set(dismissals.map((d) => `${d.authorRaw}::${d.suggestedMemberId}`));
+
     const suggestions: IdentitySuggestion[] = [];
 
     for (const [authorRaw, authorName] of unresolvedMap) {
-      let best: IdentitySuggestion | null = null;
+      const candidates: IdentitySuggestion[] = [];
 
       for (const member of members) {
         const mIds = memberIdentities.get(member.id) || [];
         const suggestion = scoreMember(authorRaw, authorName, member, mIds);
-        if (
-          suggestion &&
-          (!best || confidenceRank(suggestion.confidence) > confidenceRank(best.confidence))
-        ) {
-          best = suggestion;
+        if (suggestion && !dismissedSet.has(`${authorRaw}::${member.id}`)) {
+          candidates.push(suggestion);
         }
       }
 
-      if (best) suggestions.push(best);
+      // Sort by confidence (high first) and take top 3
+      candidates.sort((a, b) => confidenceRank(b.confidence) - confidenceRank(a.confidence));
+      suggestions.push(...candidates.slice(0, 3));
     }
 
     return suggestions;
@@ -73,7 +76,7 @@ function confidenceRank(c: 'high' | 'medium' | 'low'): number {
 export function scoreMember(
   authorRaw: string,
   authorName: string | null,
-  member: { id: string; name: string },
+  member: { id: string; name: string; aliases?: string | null },
   identities: Array<{ platform: string; value: string }>,
 ): IdentitySuggestion | null {
   const rawLower = authorRaw.toLowerCase();
@@ -117,6 +120,31 @@ export function scoreMember(
     }
     if (namesMatch(nameLower, memberLower)) {
       return makeSuggestion(authorRaw, authorName, member, 'medium', 'Name similarity match');
+    }
+  }
+
+  // Heuristic 2b: Alias match
+  if (member.aliases) {
+    const aliasList = member.aliases
+      .split(',')
+      .map((a) => a.trim().toLowerCase())
+      .filter(Boolean);
+    for (const alias of aliasList) {
+      if (nameLower && (nameLower === alias || namesMatch(nameLower, alias))) {
+        return makeSuggestion(authorRaw, authorName, member, 'medium', `Alias match: "${alias}"`);
+      }
+      if (rawLower.includes('@')) {
+        const localPart = rawLower.split('@')[0].replace(/[._-]/g, ' ');
+        if (alias.length >= 3 && localPart.includes(alias)) {
+          return makeSuggestion(
+            authorRaw,
+            authorName,
+            member,
+            'low',
+            `Email contains alias "${alias}"`,
+          );
+        }
+      }
     }
   }
 

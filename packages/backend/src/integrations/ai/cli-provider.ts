@@ -11,8 +11,32 @@ import { AIError } from '../../errors/ai.js';
 import type { AIProviderInterface } from './ai-provider.js';
 
 export interface CLIProviderConfig {
-  command: string;        // e.g., "claude" or "/usr/local/bin/claude"
-  args?: string[];        // e.g., ["-p"] or ["--model", "claude-3"]
+  command: string; // e.g., "claude" or "/usr/local/bin/claude"
+  args?: string[]; // e.g., ["-p"] or ["--model", "claude-3"]
+}
+
+/** Global registry of active CLI child processes for cleanup on shutdown */
+const activeProcesses = new Set<ChildProcess>();
+
+export function killAllActiveProcesses(): void {
+  for (const proc of activeProcesses) {
+    // During shutdown, force-kill immediately (no graceful SIGTERM wait)
+    if (!proc.pid) continue;
+    if (platform() === 'win32') {
+      try {
+        spawn('taskkill', ['/F', '/T', '/PID', String(proc.pid)], { stdio: 'ignore' });
+      } catch {
+        /* best-effort */
+      }
+    } else {
+      try {
+        proc.kill('SIGKILL');
+      } catch {
+        /* already exited */
+      }
+    }
+  }
+  activeProcesses.clear();
 }
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -54,7 +78,10 @@ export class CLIProvider implements AIProviderInterface {
     this.config = config;
   }
 
-  async generate(prompt: string, options?: { maxTokens?: number; timeout?: number }): Promise<string> {
+  async generate(
+    prompt: string,
+    options?: { maxTokens?: number; timeout?: number },
+  ): Promise<string> {
     const timeout = options?.timeout ?? DEFAULT_TIMEOUT;
 
     return new Promise<string>((resolve, reject) => {
@@ -68,18 +95,22 @@ export class CLIProvider implements AIProviderInterface {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT')) {
-          return reject(new AIError(
-            `AI CLI command not found: ${this.config.command}`,
-            'AI_PROVIDER_UNAVAILABLE',
-            { command: this.config.command },
-          ));
+          return reject(
+            new AIError(
+              `AI CLI command not found: ${this.config.command}`,
+              'AI_PROVIDER_UNAVAILABLE',
+              { command: this.config.command },
+            ),
+          );
         }
-        return reject(new AIError(
-          `Failed to spawn AI CLI: ${message}`,
-          'AI_PROVIDER_UNAVAILABLE',
-          { command: this.config.command },
-        ));
+        return reject(
+          new AIError(`Failed to spawn AI CLI: ${message}`, 'AI_PROVIDER_UNAVAILABLE', {
+            command: this.config.command,
+          }),
+        );
       }
+
+      activeProcesses.add(proc);
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
@@ -88,12 +119,14 @@ export class CLIProvider implements AIProviderInterface {
       const timer = setTimeout(() => {
         if (!settled) {
           settled = true;
+          activeProcesses.delete(proc);
           killProcess(proc);
-          reject(new AIError(
-            `AI CLI timed out after ${timeout}ms`,
-            'AI_TIMEOUT',
-            { command: this.config.command, timeout },
-          ));
+          reject(
+            new AIError(`AI CLI timed out after ${timeout}ms`, 'AI_TIMEOUT', {
+              command: this.config.command,
+              timeout,
+            }),
+          );
         }
       }, timeout);
 
@@ -109,20 +142,23 @@ export class CLIProvider implements AIProviderInterface {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        activeProcesses.delete(proc);
 
         const message = err.message;
         if (message.includes('ENOENT')) {
-          reject(new AIError(
-            `AI CLI command not found: ${this.config.command}`,
-            'AI_PROVIDER_UNAVAILABLE',
-            { command: this.config.command },
-          ));
+          reject(
+            new AIError(
+              `AI CLI command not found: ${this.config.command}`,
+              'AI_PROVIDER_UNAVAILABLE',
+              { command: this.config.command },
+            ),
+          );
         } else {
-          reject(new AIError(
-            `AI CLI process error: ${message}`,
-            'AI_PROVIDER_UNAVAILABLE',
-            { command: this.config.command },
-          ));
+          reject(
+            new AIError(`AI CLI process error: ${message}`, 'AI_PROVIDER_UNAVAILABLE', {
+              command: this.config.command,
+            }),
+          );
         }
       });
 
@@ -130,25 +166,28 @@ export class CLIProvider implements AIProviderInterface {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        activeProcesses.delete(proc);
 
         const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
         const stderr = Buffer.concat(stderrChunks).toString('utf-8');
 
         if (code !== 0) {
-          reject(new AIError(
-            `AI CLI exited with code ${code}: ${stderr || 'no error output'}`,
-            'AI_PROVIDER_UNAVAILABLE',
-            { command: this.config.command, exitCode: code, stderr },
-          ));
+          reject(
+            new AIError(
+              `AI CLI exited with code ${code}: ${stderr || 'no error output'}`,
+              'AI_PROVIDER_UNAVAILABLE',
+              { command: this.config.command, exitCode: code, stderr },
+            ),
+          );
           return;
         }
 
         if (!stdout.trim()) {
-          reject(new AIError(
-            'AI CLI returned empty response',
-            'AI_PARSE_FAILED',
-            { command: this.config.command },
-          ));
+          reject(
+            new AIError('AI CLI returned empty response', 'AI_PARSE_FAILED', {
+              command: this.config.command,
+            }),
+          );
           return;
         }
 

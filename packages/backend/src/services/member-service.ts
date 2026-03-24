@@ -5,13 +5,14 @@ import { NotFoundError, ConflictError } from '../errors/index.js';
 import type { DrizzleDB } from '../data/db.js';
 
 export const MemberService = {
-  async create(db: DrizzleDB, input: { name: string }) {
+  async create(db: DrizzleDB, input: { name: string; aliases?: string }) {
     const now = new Date().toISOString();
     const id = ulid();
 
     const row = {
       id,
       name: input.name,
+      aliases: input.aliases ?? null,
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -21,7 +22,11 @@ export const MemberService = {
     return row;
   },
 
-  async update(db: DrizzleDB, id: string, input: { name?: string; status?: string }) {
+  async update(
+    db: DrizzleDB,
+    id: string,
+    input: { name?: string; status?: string; aliases?: string },
+  ) {
     const existing = await db.select().from(schema.member).where(eq(schema.member.id, id)).get();
     if (!existing) {
       throw new NotFoundError('Member', id);
@@ -31,6 +36,7 @@ export const MemberService = {
     const updates: Record<string, unknown> = { updatedAt: now };
     if (input.name !== undefined) updates.name = input.name;
     if (input.status !== undefined) updates.status = input.status;
+    if (input.aliases !== undefined) updates.aliases = input.aliases;
 
     await db.update(schema.member).set(updates).where(eq(schema.member.id, id));
 

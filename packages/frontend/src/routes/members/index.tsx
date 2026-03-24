@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useMembers, useIdentitySuggestions, useAcceptSuggestion } from '../../hooks/api/core.js';
+import {
+  useMembers,
+  useIdentitySuggestions,
+  useAcceptSuggestion,
+  useRejectSuggestion,
+} from '../../hooks/api/core.js';
 import { useCreateMember } from '../../hooks/api/settings.js';
 import { errorMessage } from '../../lib/api-client.js';
 import { toast } from 'sonner';
@@ -8,56 +13,88 @@ import { toast } from 'sonner';
 function SuggestedMappings() {
   const { data: suggestions } = useIdentitySuggestions();
   const acceptMutation = useAcceptSuggestion();
+  const rejectMutation = useRejectSuggestion();
 
   if (!suggestions?.length) return null;
+
+  // Group suggestions by authorRaw
+  const grouped = new Map<string, typeof suggestions>();
+  for (const s of suggestions) {
+    const list = grouped.get(s.authorRaw) || [];
+    list.push(s);
+    grouped.set(s.authorRaw, list);
+  }
 
   return (
     <div className="mb-6 p-4 rounded-sm border border-border bg-surface-raised">
       <h3 className="text-sm font-semibold text-text-primary mb-3">
         Suggested Identity Mappings
         <span className="ml-2 text-xs font-normal text-text-tertiary">
-          ({suggestions.length} unresolved)
+          ({grouped.size} unresolved)
         </span>
       </h3>
-      <div className="space-y-2">
-        {suggestions.map((s) => (
-          <div
-            key={s.authorRaw}
-            className="flex items-center justify-between p-2 rounded bg-surface border border-border-subtle"
-          >
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-text-secondary">{s.authorRaw}</span>
-              {s.authorName && (
-                <span className="text-xs text-text-tertiary ml-2">({s.authorName})</span>
+      <div className="space-y-3">
+        {Array.from(grouped.entries()).map(([authorRaw, candidates]) => (
+          <div key={authorRaw} className="p-2 rounded bg-surface border border-border-subtle">
+            <div className="text-sm text-text-secondary mb-2">
+              {authorRaw}
+              {candidates[0].authorName && (
+                <span className="text-xs text-text-tertiary ml-2">
+                  ({candidates[0].authorName})
+                </span>
               )}
-              <span className="mx-2 text-text-tertiary">{'\u2192'}</span>
-              <span className="text-sm font-medium text-text-primary">{s.suggestedMemberName}</span>
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-                  s.confidence === 'high'
-                    ? 'bg-success/20 text-success'
-                    : s.confidence === 'medium'
-                      ? 'bg-warning/20 text-warning'
-                      : 'bg-surface-overlay text-text-tertiary'
-                }`}
-              >
-                {s.confidence}
-              </span>
-              <span className="text-xs text-text-tertiary ml-2">{s.reason}</span>
             </div>
-            <button
-              className="px-3 py-1 text-xs rounded-full bg-accent text-white hover:bg-accent-hover"
-              onClick={() =>
-                acceptMutation.mutate({
-                  authorRaw: s.authorRaw,
-                  memberId: s.suggestedMemberId,
-                  platform: 'email',
-                })
-              }
-              disabled={acceptMutation.isPending}
-            >
-              Accept
-            </button>
+            <div className="space-y-1.5 ml-4">
+              {candidates.map((s) => (
+                <div key={s.suggestedMemberId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-tertiary">{'\u2192'}</span>
+                    <span className="text-sm font-medium text-text-primary">
+                      {s.suggestedMemberName}
+                    </span>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        s.confidence === 'high'
+                          ? 'bg-success/20 text-success'
+                          : s.confidence === 'medium'
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-surface-overlay text-text-tertiary'
+                      }`}
+                    >
+                      {s.confidence}
+                    </span>
+                    <span className="text-xs text-text-tertiary">{s.reason}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="px-3 py-1 text-xs rounded-full bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
+                      onClick={() =>
+                        acceptMutation.mutate({
+                          authorRaw: s.authorRaw,
+                          memberId: s.suggestedMemberId,
+                          platform: 'email',
+                        })
+                      }
+                      disabled={acceptMutation.isPending}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className="px-3 py-1 text-xs rounded-full bg-surface-overlay text-text-secondary hover:bg-danger/20 hover:text-danger disabled:opacity-50"
+                      onClick={() =>
+                        rejectMutation.mutate({
+                          authorRaw: s.authorRaw,
+                          suggestedMemberId: s.suggestedMemberId,
+                        })
+                      }
+                      disabled={rejectMutation.isPending}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>

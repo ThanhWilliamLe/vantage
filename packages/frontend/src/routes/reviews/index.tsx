@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 import { SyncButton } from '../../components/sync-button.js';
 import {
   usePendingQueue,
@@ -13,14 +14,22 @@ import {
   useCodeChangeDiff,
   useReviewAction,
   useBatchAction,
+  useAggregateReview,
   useCommunicateAction,
   useResolveAction,
   useRecentChangesByProject,
   useDeepAnalysis,
   useRequestDeepAnalysis,
+  useGenerateTier1,
+  useGenerateReviewNotes,
+  useClearReview,
+  useClearDeepAnalysis,
+  useBatchDeepAnalysis,
+  useBatchClearAnalysis,
+  useBatchSummarize,
 } from '../../hooks/api/reviews.js';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import type { CodeChange } from '@twle/vantage-shared';
+import type { CodeChange, AIActiveItem } from '@twle/vantage-shared';
 
 function RiskBadge({ level }: { level: string | null }) {
   if (!level) return null;
@@ -38,10 +47,11 @@ function RiskBadge({ level }: { level: string | null }) {
   );
 }
 
-/** Renders a unified diff with syntax coloring for additions, deletions, and headers. */
+/** Parses unified diff into per-file sections and renders each as a collapsible foldout. */
 function DiffViewer({ id }: { id: string }) {
   const diff = useCodeChangeDiff(id);
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<number>>(new Set());
 
   if (diff.isLoading) {
     return (
@@ -67,44 +77,141 @@ function DiffViewer({ id }: { id: string }) {
     return null;
   }
 
-  const lines = diff.data.diff.split('\n');
+  // Parse diff into per-file sections
+  const rawDiff = diff.data.diff;
+  const fileSections: Array<{
+    header: string;
+    additions: number;
+    deletions: number;
+    lines: string[];
+  }> = [];
+  let currentSection: {
+    header: string;
+    additions: number;
+    deletions: number;
+    lines: string[];
+  } | null = null;
+
+  for (const line of rawDiff.split('\n')) {
+    if (line.startsWith('diff --git') || line.startsWith('# Commit:')) {
+      if (currentSection) fileSections.push(currentSection);
+      // Extract filename from "diff --git a/path b/path" or use line as-is
+      const match = line.match(/diff --git a\/(.+?) b\//);
+      const header = match ? match[1] : line;
+      currentSection = { header, additions: 0, deletions: 0, lines: [] };
+    }
+    if (currentSection) {
+      currentSection.lines.push(line);
+      if (line.startsWith('+') && !line.startsWith('+++')) currentSection.additions++;
+      if (line.startsWith('-') && !line.startsWith('---')) currentSection.deletions++;
+    }
+  }
+  if (currentSection) fileSections.push(currentSection);
+
+  // If no file sections parsed, fall back to single block
+  if (fileSections.length === 0) {
+    const fallbackLines = rawDiff.split('\n');
+    let additions = 0,
+      deletions = 0;
+    for (const line of fallbackLines) {
+      if (line.startsWith('+') && !line.startsWith('+++')) additions++;
+      if (line.startsWith('-') && !line.startsWith('---')) deletions++;
+    }
+    fileSections.push({ header: 'Changes', additions, deletions, lines: fallbackLines });
+  }
+
+  function toggleFile(index: number) {
+    setCollapsedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setCollapsedFiles(new Set());
+  }
+
+  function collapseAll() {
+    setCollapsedFiles(new Set(fileSections.map((_, i) => i)));
+  }
 
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-text-tertiary">Diff</span>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="text-xs text-text-tertiary hover:text-text-secondary"
-        >
-          {collapsed ? 'Show' : 'Hide'}
-        </button>
+        <span className="text-xs text-text-tertiary">Diff ({fileSections.length} files)</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={expandAll}
+            className="text-xs text-text-tertiary hover:text-text-secondary"
+          >
+            Expand All
+          </button>
+          <button
+            onClick={collapseAll}
+            className="text-xs text-text-tertiary hover:text-text-secondary"
+          >
+            Collapse All
+          </button>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="text-xs text-text-tertiary hover:text-text-secondary"
+          >
+            {collapsed ? 'Show' : 'Hide'}
+          </button>
+        </div>
       </div>
       {!collapsed && (
         <div className="border border-border-subtle rounded overflow-hidden">
-          <pre className="text-xs leading-5 overflow-x-auto max-h-[400px] overflow-y-auto bg-surface p-0 m-0">
-            {lines.map((line, i) => {
-              let className = 'px-3 block';
-              if (line.startsWith('+++') || line.startsWith('---')) {
-                className += ' text-accent font-medium bg-accent/5';
-              } else if (line.startsWith('@@')) {
-                className += ' text-accent bg-accent/10';
-              } else if (line.startsWith('diff ')) {
-                className += ' text-accent font-medium bg-accent/5';
-              } else if (line.startsWith('+')) {
-                className += ' text-success bg-success/10';
-              } else if (line.startsWith('-')) {
-                className += ' text-danger bg-danger/10';
-              } else {
-                className += ' text-text-secondary';
-              }
-              return (
-                <code key={i} className={className}>
-                  {line || '\n'}
-                </code>
-              );
-            })}
-          </pre>
+          {fileSections.map((section, index) => (
+            <div key={index} className={index > 0 ? 'border-t border-border-subtle' : ''}>
+              <button
+                onClick={() => toggleFile(index)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-surface-overlay hover:bg-surface text-left"
+              >
+                <span className="text-xs font-medium text-text-primary truncate">
+                  {section.header}
+                </span>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  {section.additions > 0 && (
+                    <span className="text-xs text-success">+{section.additions}</span>
+                  )}
+                  {section.deletions > 0 && (
+                    <span className="text-xs text-danger">-{section.deletions}</span>
+                  )}
+                  <span className="text-xs text-text-tertiary">
+                    {collapsedFiles.has(index) ? '\u25B6' : '\u25BC'}
+                  </span>
+                </div>
+              </button>
+              {!collapsedFiles.has(index) && (
+                <pre className="text-xs leading-5 overflow-x-auto max-h-[400px] overflow-y-auto bg-surface p-0 m-0">
+                  {section.lines.map((line, i) => {
+                    let className = 'px-3 block';
+                    if (line.startsWith('+++') || line.startsWith('---')) {
+                      className += ' text-accent font-medium bg-accent/5';
+                    } else if (line.startsWith('@@')) {
+                      className += ' text-accent bg-accent/10';
+                    } else if (line.startsWith('diff ')) {
+                      className += ' text-accent font-medium bg-accent/5';
+                    } else if (line.startsWith('+')) {
+                      className += ' text-success bg-success/10';
+                    } else if (line.startsWith('-')) {
+                      className += ' text-danger bg-danger/10';
+                    } else {
+                      className += ' text-text-secondary';
+                    }
+                    return (
+                      <code key={i} className={className}>
+                        {line || '\n'}
+                      </code>
+                    );
+                  })}
+                </pre>
+              )}
+            </div>
+          ))}
           {diff.data.truncated && (
             <div className="px-3 py-2 bg-warning/10 border-t border-border-subtle text-xs text-warning">
               Diff truncated due to size. Showing partial content.
@@ -198,6 +305,7 @@ const severityStyles: Record<string, string> = {
 function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
   const deepAnalysis = useDeepAnalysis(codeChangeId);
   const requestAnalysis = useRequestDeepAnalysis();
+  const clearAnalysis = useClearDeepAnalysis();
 
   const hasResults = deepAnalysis.data && deepAnalysis.data.findings?.length > 0;
 
@@ -242,13 +350,26 @@ function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
             <span className="text-xs text-text-tertiary">
               Analyzed {new Date(deepAnalysis.data!.analyzedAt).toLocaleString()}
             </span>
-            <button
-              onClick={() => requestAnalysis.mutate({ codeChangeId, force: true })}
-              disabled={requestAnalysis.isPending}
-              className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
-            >
-              {requestAnalysis.isPending ? 'Re-analyzing...' : 'Re-analyze'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (confirm('Clear analysis results?')) {
+                    clearAnalysis.mutate(codeChangeId);
+                  }
+                }}
+                disabled={clearAnalysis.isPending}
+                className="text-xs text-text-tertiary hover:text-danger disabled:opacity-50"
+              >
+                {clearAnalysis.isPending ? 'Clearing...' : 'Clear'}
+              </button>
+              <button
+                onClick={() => requestAnalysis.mutate({ codeChangeId, force: true })}
+                disabled={requestAnalysis.isPending}
+                className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
+              >
+                {requestAnalysis.isPending ? 'Re-analyzing...' : 'Re-analyze'}
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -269,6 +390,35 @@ function DeepAnalysisPanel({ codeChangeId }: { codeChangeId: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Shows elapsed time and provider info for an active deep analysis. */
+function ActiveAnalysisRow({ item }: { item: AIActiveItem }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const startTime = new Date(item.startedAt).getTime();
+    const tick = () => setElapsed(Math.round((Date.now() - startTime) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [item.startedAt]);
+
+  // Format elapsed as mm:ss when >= 60s
+  const elapsedDisplay =
+    elapsed >= 60 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : `${elapsed}s`;
+
+  return (
+    <div className="flex items-center gap-3 text-xs text-accent-text/80">
+      <span className="font-medium">
+        {item.providerName} ({item.providerType})
+      </span>
+      <span className="text-text-tertiary truncate max-w-xs" title={item.repoPath}>
+        {item.repoPath}
+      </span>
+      <span className="text-text-tertiary ml-auto tabular-nums">{elapsedDisplay}</span>
     </div>
   );
 }
@@ -296,6 +446,20 @@ export function ReviewQueue() {
 
   const reviewAction = useReviewAction();
   const batchAction = useBatchAction();
+  const aggregateReview = useAggregateReview();
+  const batchAnalysis = useBatchDeepAnalysis();
+  const batchClearAnalysis = useBatchClearAnalysis();
+  const batchSummarize = useBatchSummarize();
+  const generateTier1 = useGenerateTier1();
+  const generateNotes = useGenerateReviewNotes();
+  const clearReview = useClearReview();
+
+  const isBatchBusy =
+    batchAction.isPending ||
+    aggregateReview.isPending ||
+    batchAnalysis.isPending ||
+    batchClearAnalysis.isPending ||
+    batchSummarize.isPending;
 
   const items = pending.data?.items ?? [];
 
@@ -372,13 +536,28 @@ export function ReviewQueue() {
   }
 
   function handleBatch(action: 'review' | 'flag' | 'defer') {
-    batchAction.mutate({
-      ids: Array.from(selectedIds),
-      action,
-      notes: action === 'review' ? notes || undefined : undefined,
-      flagReason: action === 'flag' ? flagReason || undefined : undefined,
-    });
-    setSelectedIds(new Set());
+    const count = selectedIds.size;
+    batchAction.mutate(
+      {
+        ids: Array.from(selectedIds),
+        action,
+        notes: action === 'review' ? notes || undefined : undefined,
+        flagReason: action === 'flag' ? flagReason || undefined : undefined,
+      },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set());
+          toast.success(
+            `${action === 'review' ? 'Reviewed' : action === 'defer' ? 'Deferred' : 'Flagged'} ${count} items`,
+          );
+        },
+        onError: (err) => {
+          toast.error(
+            `Batch ${action} failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          );
+        },
+      },
+    );
   }
 
   if (pending.isLoading) {
@@ -455,10 +634,20 @@ export function ReviewQueue() {
         <SyncButton variant="compact" />
       </div>
 
-      {aiStatus.data?.processing && (
-        <div className="mb-4 px-4 py-2 bg-accent/10 border border-accent/20 rounded-sm text-sm text-accent-text flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
-          AI processing — {aiStatus.data.completed}/{aiStatus.data.total} complete
+      {(aiStatus.data?.processing ||
+        (aiStatus.data?.activeItems && aiStatus.data.activeItems.length > 0)) && (
+        <div className="mb-4 bg-accent/10 border border-accent/20 rounded-sm">
+          <div className="px-4 py-2 text-sm text-accent-text flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
+            AI processing — {aiStatus.data.completed}/{aiStatus.data.total} complete
+          </div>
+          {aiStatus.data.activeItems && aiStatus.data.activeItems.length > 0 && (
+            <div className="px-4 py-2 border-t border-accent/20 space-y-1">
+              {aiStatus.data.activeItems.map((item) => (
+                <ActiveAnalysisRow key={item.codeChangeId} item={item} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -506,15 +695,91 @@ export function ReviewQueue() {
           <span className="text-sm text-text-secondary">{selectedIds.size} selected</span>
           <button
             onClick={() => handleBatch('review')}
-            className="px-3 py-1 bg-success/20 text-success text-xs rounded-full hover:bg-success/30"
+            disabled={isBatchBusy}
+            className="px-3 py-1 bg-success/20 text-success text-xs rounded-full hover:bg-success/30 disabled:opacity-50"
           >
             Review All
           </button>
+          {selectedIds.size > 1 && (
+            <button
+              onClick={() => {
+                aggregateReview.mutate(
+                  {
+                    ids: Array.from(selectedIds),
+                    notes: notes || undefined,
+                  },
+                  {
+                    onSuccess: () => {
+                      setSelectedIds(new Set());
+                      toast.success(`Reviewed ${selectedIds.size} commits as one unit`);
+                    },
+                    onError: (err) => {
+                      toast.error(
+                        `Aggregated review failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+                      );
+                    },
+                  },
+                );
+              }}
+              disabled={isBatchBusy}
+              className="px-3 py-1 bg-accent/20 text-accent text-xs rounded-full hover:bg-accent/30 disabled:opacity-50"
+            >
+              {aggregateReview.isPending ? 'Reviewing...' : 'Aggregated Review'}
+            </button>
+          )}
           <button
             onClick={() => handleBatch('defer')}
-            className="px-3 py-1 bg-warning/20 text-warning text-xs rounded-full hover:bg-warning/30"
+            disabled={isBatchBusy}
+            className="px-3 py-1 bg-warning/20 text-warning text-xs rounded-full hover:bg-warning/30 disabled:opacity-50"
           >
             Defer All
+          </button>
+          <button
+            onClick={() => {
+              const ids = Array.from(selectedIds);
+              batchAnalysis.mutate(ids, {
+                onSuccess: () => toast.success(`Deep analysis requested for ${ids.length} items`),
+                onError: () => toast.error('Some analyses failed'),
+              });
+            }}
+            disabled={isBatchBusy}
+            className="px-3 py-1 bg-accent/10 text-accent text-xs rounded-full hover:bg-accent/20 disabled:opacity-50"
+          >
+            {batchAnalysis.isPending ? 'Analyzing...' : 'Analyze All'}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Clear analysis for ${selectedIds.size} items?`)) {
+                const count = selectedIds.size;
+                batchClearAnalysis.mutate(Array.from(selectedIds), {
+                  onSuccess: () => toast.success(`Cleared analysis for ${count} items`),
+                  onError: () => toast.error('Failed to clear some analyses'),
+                });
+              }
+            }}
+            disabled={isBatchBusy}
+            className="px-3 py-1 bg-surface-overlay text-text-secondary text-xs rounded-full hover:bg-danger/20 hover:text-danger disabled:opacity-50"
+          >
+            {batchClearAnalysis.isPending ? 'Clearing...' : 'Clear Analysis All'}
+          </button>
+          <button
+            onClick={() => {
+              const unsummarized = Array.from(selectedIds).filter(
+                (id) => !items.find((item) => item.id === id)?.aiSummary,
+              );
+              if (unsummarized.length === 0) {
+                toast.info('All selected items already have summaries');
+                return;
+              }
+              batchSummarize.mutate(unsummarized, {
+                onSuccess: () => toast.success(`Summarized ${unsummarized.length} items`),
+                onError: () => toast.error('Some summaries failed'),
+              });
+            }}
+            disabled={isBatchBusy}
+            className="px-3 py-1 bg-accent/10 text-accent text-xs rounded-full hover:bg-accent/20 disabled:opacity-50"
+          >
+            {batchSummarize.isPending ? 'Summarizing...' : 'Summarize All'}
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
@@ -619,12 +884,29 @@ export function ReviewQueue() {
                 )}
               </div>
 
-              {detailData.aiSummary && (
-                <div className="mt-4 p-3 bg-surface-overlay border border-border-subtle rounded text-sm text-text-secondary">
-                  <span className="text-xs text-text-tertiary block mb-1">AI Summary</span>
-                  {detailData.aiSummary}
+              <div className="mt-4 p-3 bg-surface-overlay border border-border-subtle rounded text-sm text-text-secondary">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-text-tertiary">AI Summary</span>
+                  <button
+                    onClick={() => generateTier1.mutate({ codeChangeId: selectedId })}
+                    disabled={generateTier1.isPending}
+                    className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
+                  >
+                    {generateTier1.isPending
+                      ? 'Generating...'
+                      : detailData.aiSummary
+                        ? 'Re-summarize'
+                        : 'Summarize'}
+                  </button>
                 </div>
-              )}
+                {detailData.aiSummary ? (
+                  <p>{detailData.aiSummary}</p>
+                ) : (
+                  <p className="text-text-tertiary italic">
+                    No summary yet. Click Summarize to generate one.
+                  </p>
+                )}
+              </div>
 
               {/* Deep analysis */}
               <DeepAnalysisPanel codeChangeId={selectedId} />
@@ -676,7 +958,24 @@ export function ReviewQueue() {
 
               {/* Review notes input */}
               <div className="mt-6">
-                <label className="block text-xs text-text-tertiary mb-1">Review Notes</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-text-tertiary">Review Notes</label>
+                  <button
+                    onClick={() => {
+                      generateNotes.mutate(
+                        { codeChangeId: selectedId },
+                        {
+                          onSuccess: (data) => setNotes(data.notes),
+                          onError: () => toast.error('Failed to generate notes'),
+                        },
+                      );
+                    }}
+                    disabled={generateNotes.isPending}
+                    className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
+                  >
+                    {generateNotes.isPending ? 'Generating...' : 'Auto-generate'}
+                  </button>
+                </div>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -732,6 +1031,24 @@ export function ReviewQueue() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-text-tertiary">Use j/k to navigate, r/f/d to act</p>
+
+              {detailData.status !== 'pending' && (
+                <div className="mt-3 pt-3 border-t border-border-subtle">
+                  <button
+                    onClick={() => {
+                      if (
+                        confirm('Clear this review? The item will return to the pending queue.')
+                      ) {
+                        clearReview.mutate(selectedId);
+                      }
+                    }}
+                    disabled={clearReview.isPending}
+                    className="text-xs text-text-tertiary hover:text-danger disabled:opacity-50"
+                  >
+                    {clearReview.isPending ? 'Clearing...' : 'Clear Review'}
+                  </button>
+                </div>
+              )}
             </div>
           ) : null}
         </div>

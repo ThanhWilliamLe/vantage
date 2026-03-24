@@ -28,6 +28,7 @@ import {
   useUpdateTaskTrackerCredential,
   useDeleteTaskTrackerCredential,
 } from '../../hooks/api/settings.js';
+import { useEvaluations } from '../../hooks/api/evaluations.js';
 import { errorMessage } from '../../lib/api-client.js';
 import { format } from 'date-fns/format';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
@@ -39,8 +40,10 @@ export function ProjectDetail() {
   const project = useProject(id);
   const recentChanges = useCodeChanges({ projectId: id, limit: '10' });
   const members = useMembers();
+  const evaluations = useEvaluations({ projectId: id, limit: '20' });
   const updateProject = useUpdateProject();
   const [editing, setEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'settings' | 'commits' | 'evaluations'>('settings');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const memberMap = useMemo(
@@ -142,138 +145,214 @@ export function ProjectDetail() {
 
       {editing && <ProjectEditForm project={p} onDone={() => setEditing(false)} />}
 
-      {/* Repositories */}
-      <section className="mb-6">
-        <button
-          onClick={() => setCollapsed((c) => ({ ...c, repos: !c.repos }))}
-          aria-expanded={!collapsed.repos}
-          className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
-        >
-          <span className="text-text-tertiary text-xs" aria-hidden="true">
-            {collapsed.repos ? '\u25B6' : '\u25BC'}
-          </span>
-          Repositories
-        </button>
-        {!collapsed.repos && <ProjectRepositories projectId={id} />}
-      </section>
+      {/* Tab bar */}
+      <div className="flex gap-0 border-b border-border mb-6">
+        {(['settings', 'commits', 'evaluations'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === tab
+                ? 'border-accent text-accent-text'
+                : 'border-transparent text-text-tertiary hover:text-text-secondary'
+            }`}
+          >
+            {tab === 'settings' ? 'Settings' : tab === 'commits' ? 'Commits' : 'Evaluations'}
+          </button>
+        ))}
+      </div>
 
-      {/* Team composition */}
-      <section className="mb-6">
-        <button
-          onClick={() => setCollapsed((c) => ({ ...c, team: !c.team }))}
-          aria-expanded={!collapsed.team}
-          className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
-        >
-          <span className="text-text-tertiary text-xs" aria-hidden="true">
-            {collapsed.team ? '\u25B6' : '\u25BC'}
-          </span>
-          Team
-        </button>
-        {!collapsed.team && (
-          <ProjectAssignments projectId={id} memberMap={memberMap} members={members.data ?? []} />
-        )}
-      </section>
+      {/* Settings tab */}
+      {activeTab === 'settings' && (
+        <>
+          {/* Repositories */}
+          <section className="mb-6">
+            <button
+              onClick={() => setCollapsed((c) => ({ ...c, repos: !c.repos }))}
+              aria-expanded={!collapsed.repos}
+              className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
+            >
+              <span className="text-text-tertiary text-xs" aria-hidden="true">
+                {collapsed.repos ? '\u25B6' : '\u25BC'}
+              </span>
+              Repositories
+            </button>
+            {!collapsed.repos && <ProjectRepositories projectId={id} />}
+          </section>
 
-      {/* Task patterns */}
-      <section className="mb-6">
-        <button
-          onClick={() => setCollapsed((c) => ({ ...c, tasks: !c.tasks }))}
-          aria-expanded={!collapsed.tasks}
-          className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
-        >
-          <span className="text-text-tertiary text-xs" aria-hidden="true">
-            {collapsed.tasks ? '\u25B6' : '\u25BC'}
-          </span>
-          Task Patterns
-        </button>
-        {!collapsed.tasks && <ProjectTaskPatterns projectId={id} />}
-      </section>
+          {/* Team composition */}
+          <section className="mb-6">
+            <button
+              onClick={() => setCollapsed((c) => ({ ...c, team: !c.team }))}
+              aria-expanded={!collapsed.team}
+              className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
+            >
+              <span className="text-text-tertiary text-xs" aria-hidden="true">
+                {collapsed.team ? '\u25B6' : '\u25BC'}
+              </span>
+              Team
+            </button>
+            {!collapsed.team && (
+              <ProjectAssignments
+                projectId={id}
+                memberMap={memberMap}
+                members={members.data ?? []}
+              />
+            )}
+          </section>
 
-      {/* Task tracker credentials */}
-      <section className="mb-6">
-        <button
-          onClick={() => setCollapsed((c) => ({ ...c, creds: !c.creds }))}
-          aria-expanded={!collapsed.creds}
-          className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
-        >
-          <span className="text-text-tertiary text-xs" aria-hidden="true">
-            {collapsed.creds ? '\u25B6' : '\u25BC'}
-          </span>
-          Task Tracker Credentials
-        </button>
-        {!collapsed.creds && <ProjectTaskTrackerCredentials projectId={id} />}
-      </section>
+          {/* Task patterns */}
+          <section className="mb-6">
+            <button
+              onClick={() => setCollapsed((c) => ({ ...c, tasks: !c.tasks }))}
+              aria-expanded={!collapsed.tasks}
+              className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
+            >
+              <span className="text-text-tertiary text-xs" aria-hidden="true">
+                {collapsed.tasks ? '\u25B6' : '\u25BC'}
+              </span>
+              Task Patterns
+            </button>
+            {!collapsed.tasks && <ProjectTaskPatterns projectId={id} />}
+          </section>
 
-      {/* Recent code changes */}
-      <section>
-        <button
-          onClick={() => setCollapsed((c) => ({ ...c, changes: !c.changes }))}
-          aria-expanded={!collapsed.changes}
-          className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
-        >
-          <span className="text-text-tertiary text-xs" aria-hidden="true">
-            {collapsed.changes ? '\u25B6' : '\u25BC'}
-          </span>
-          Recent Code Changes
-        </button>
-        {collapsed.changes ? null : recentChanges.isLoading ? (
-          <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
-        ) : (recentChanges.data?.items?.length ?? 0) === 0 ? (
-          <p className="text-sm text-text-tertiary">No code changes found for this project.</p>
-        ) : (
-          <div className="space-y-2">
-            {recentChanges.data!.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
-              >
-                <div>
-                  <span className="text-sm text-text-primary">{item.title}</span>
-                  <div className="flex gap-2 mt-0.5 text-xs text-text-tertiary">
-                    {item.authorMemberId ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate({ to: '/members/$id', params: { id: item.authorMemberId! } });
-                        }}
-                        className="text-accent-text hover:text-accent-hover"
-                      >
-                        {item.authorName ?? item.authorRaw}
-                      </button>
-                    ) : (
-                      <span>{item.authorName ?? item.authorRaw}</span>
-                    )}
-                    <span>{format(new Date(item.authoredAt), 'MMM d')}</span>
-                    {item.branch && (
-                      <span className="px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
-                        {item.branch}
-                      </span>
-                    )}
+          {/* Task tracker credentials */}
+          <section className="mb-6">
+            <button
+              onClick={() => setCollapsed((c) => ({ ...c, creds: !c.creds }))}
+              aria-expanded={!collapsed.creds}
+              className="flex items-center gap-2 text-sm font-semibold text-text-primary uppercase tracking-wider mb-3 w-full text-left cursor-pointer"
+            >
+              <span className="text-text-tertiary text-xs" aria-hidden="true">
+                {collapsed.creds ? '\u25B6' : '\u25BC'}
+              </span>
+              Task Tracker Credentials
+            </button>
+            {!collapsed.creds && <ProjectTaskTrackerCredentials projectId={id} />}
+          </section>
+        </>
+      )}
+
+      {/* Commits tab */}
+      {activeTab === 'commits' && (
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+            Recent Code Changes
+          </h2>
+          {recentChanges.isLoading ? (
+            <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+          ) : (recentChanges.data?.items?.length ?? 0) === 0 ? (
+            <p className="text-sm text-text-tertiary">No code changes found for this project.</p>
+          ) : (
+            <div className="space-y-2">
+              {recentChanges.data!.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
+                >
+                  <div>
+                    <span className="text-sm text-text-primary">{item.title}</span>
+                    <div className="flex gap-2 mt-0.5 text-xs text-text-tertiary">
+                      {item.authorMemberId ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate({ to: '/members/$id', params: { id: item.authorMemberId! } });
+                          }}
+                          className="text-accent-text hover:text-accent-hover"
+                        >
+                          {item.authorName ?? item.authorRaw}
+                        </button>
+                      ) : (
+                        <span>{item.authorName ?? item.authorRaw}</span>
+                      )}
+                      <span>{format(new Date(item.authoredAt), 'MMM d')}</span>
+                      {item.branch && (
+                        <span className="px-1.5 py-0.5 bg-surface-overlay rounded text-text-secondary">
+                          {item.branch}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-tertiary">
+                      +{item.linesAdded} -{item.linesDeleted}
+                    </span>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        item.status === 'pending'
+                          ? 'bg-warning/20 text-warning'
+                          : item.status === 'reviewed'
+                            ? 'bg-success/20 text-success'
+                            : item.status === 'flagged'
+                              ? 'bg-danger/20 text-danger'
+                              : 'bg-surface-overlay text-text-tertiary'
+                      }`}
+                    >
+                      {item.status}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-tertiary">
-                    +{item.linesAdded} -{item.linesDeleted}
-                  </span>
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded ${
-                      item.status === 'pending'
-                        ? 'bg-warning/20 text-warning'
-                        : item.status === 'reviewed'
-                          ? 'bg-success/20 text-success'
-                          : item.status === 'flagged'
-                            ? 'bg-danger/20 text-danger'
-                            : 'bg-surface-overlay text-text-tertiary'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Evaluations tab */}
+      {activeTab === 'evaluations' && (
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+            Evaluations
+          </h2>
+          {evaluations.isLoading ? (
+            <div className="h-16 bg-surface-raised border border-border rounded animate-pulse" />
+          ) : (
+            (() => {
+              // Client-side filter: projectIds is a JSON array, filter to entries containing this project
+              const filtered =
+                evaluations.data?.items?.filter((ev) => {
+                  try {
+                    const pids =
+                      typeof ev.projectIds === 'string' ? JSON.parse(ev.projectIds) : ev.projectIds;
+                    return Array.isArray(pids) && pids.includes(id);
+                  } catch {
+                    return false;
+                  }
+                }) ?? [];
+              return filtered.length === 0 ? (
+                <p className="text-sm text-text-tertiary">No evaluations for this project.</p>
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="flex items-center justify-between px-4 py-3 bg-surface-raised border border-border rounded-sm"
+                    >
+                      <div>
+                        <span className="text-sm text-text-primary">
+                          {ev.description || 'No description'}
+                        </span>
+                        <span className="ml-2 text-xs text-text-tertiary">{ev.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {ev.workloadScore != null && (
+                          <span className="text-xs text-text-secondary">
+                            Score: {ev.workloadScore}
+                          </span>
+                        )}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-surface-overlay text-text-secondary">
+                          {ev.type}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              );
+            })()
+          )}
+        </section>
+      )}
     </div>
   );
 }

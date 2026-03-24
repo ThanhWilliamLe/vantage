@@ -57,6 +57,20 @@ export async function reviewRoutes(app: FastifyInstance) {
     return { items: results };
   });
 
+  // POST /api/code-changes/aggregate-review — review multiple commits as one unit
+  app.post('/api/code-changes/aggregate-review', async (request) => {
+    const body = request.body as { ids: string[]; notes?: string };
+    const result = await ReviewService.aggregateReview(app.db, body.ids, body.notes);
+    return result;
+  });
+
+  // POST /api/code-changes/:id/clear-review — reset to pending, keep notes
+  app.post('/api/code-changes/:id/clear-review', async (request) => {
+    const { id } = request.params as { id: string };
+    const result = await ReviewService.clearReview(app.db, id);
+    return result;
+  });
+
   // GET /api/code-changes/history — review history with filters
   app.get('/api/code-changes/history', async (request) => {
     const query = request.query as {

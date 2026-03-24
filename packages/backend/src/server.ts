@@ -76,6 +76,31 @@ async function main() {
     // 7. Start server
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Vantage server running at http://${HOST}:${PORT}`);
+
+    // Graceful shutdown handler
+    async function shutdown(signal: string) {
+      app.log.info(`Received ${signal}, shutting down gracefully...`);
+
+      // Stop AI processing queue
+      const { AIService } = await import('./services/ai/ai-service.js');
+      AIService.cleanup();
+
+      // Kill any active CLI child processes
+      const { killAllActiveProcesses } = await import('./integrations/ai/cli-provider.js');
+      killAllActiveProcesses();
+
+      // Close Fastify server (stops accepting new connections)
+      await app.close();
+
+      // Close database
+      sqlite.close();
+
+      app.log.info('Shutdown complete');
+      process.exit(0);
+    }
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (err) {
     bootstrapLogger.log.error(err, 'Failed to start server');
     process.exit(1);

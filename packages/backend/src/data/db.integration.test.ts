@@ -32,9 +32,10 @@ describe('database (integration)', () => {
       'sync_state',
       'app_config',
       'task_tracker_credential',
+      'identity_suggestion_dismissal',
     ];
 
-    it('all 15 tables exist after migration', () => {
+    it('all 16 tables exist after migration', () => {
       const rows = sqlite
         .prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' ORDER BY name",
@@ -43,7 +44,7 @@ describe('database (integration)', () => {
 
       const tableNames = rows.map((r) => r.name).sort();
       expect(tableNames).toEqual(expectedTables.slice().sort());
-      expect(tableNames.length).toBe(15);
+      expect(tableNames.length).toBe(16);
     });
   });
 

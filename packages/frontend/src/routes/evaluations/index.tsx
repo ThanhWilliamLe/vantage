@@ -18,7 +18,8 @@ type QuarterlyMode = 'per-member' | 'per-member-per-project';
 
 export function Evaluations() {
   const [activeTab, setActiveTab] = useState<Tab>('daily');
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateStart, setDateStart] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateEnd, setDateEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedQuarter, setSelectedQuarter] = useState(() => {
     const now = new Date();
     const q = Math.ceil((now.getMonth() + 1) / 3);
@@ -52,13 +53,13 @@ export function Evaluations() {
   const deleteEval = useDeleteEvaluation();
 
   // Bug 3: AI pre-fill for daily evaluations
-  const dailyPrefill = useDailyPrefill(selectedDate, selectedMemberId);
+  const dailyPrefill = useDailyPrefill(dateStart, dateEnd, selectedMemberId);
 
   // Bug 4: AI synthesis for quarterly evaluations
   const quarterlySynthesis = useQuarterlySynthesis(selectedQuarter, selectedMemberId);
 
   // Bug 5: Day activity for member hints
-  const dayActivity = useDayActivity(selectedDate);
+  const dayActivity = useDayActivity(dateEnd);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -117,7 +118,8 @@ export function Evaluations() {
       {
         type: 'daily',
         memberId: selectedMemberId,
-        date: selectedDate,
+        date: dateEnd,
+        dateRangeStart: dateStart !== dateEnd ? dateStart : undefined,
         projectIds: selectedProjectIds,
         description: description || undefined,
         workloadScore: workloadScore ? parseInt(workloadScore, 10) : undefined,
@@ -431,11 +433,20 @@ export function Evaluations() {
         <div>
           <div className="flex flex-wrap gap-3 mb-4 items-end">
             <div>
-              <label className="block text-xs text-text-tertiary mb-1">Date</label>
+              <label className="block text-xs text-text-tertiary mb-1">Start Date</label>
               <input
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                className="px-3 py-2 bg-surface-raised border border-border rounded text-sm text-text-primary outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-text-tertiary mb-1">End Date</label>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
                 className="px-3 py-2 bg-surface-raised border border-border rounded text-sm text-text-primary outline-none focus:border-accent"
               />
             </div>
@@ -461,7 +472,8 @@ export function Evaluations() {
           {activeMemberIds.size > 0 && (
             <div className="mb-4 px-3 py-2 bg-surface-overlay border border-border rounded text-xs text-text-secondary">
               <span className="font-medium text-text-primary">
-                Members with activity on {selectedDate}:
+                Members with activity{' '}
+                {dateStart === dateEnd ? `on ${dateEnd}` : `from ${dateStart} to ${dateEnd}`}:
               </span>{' '}
               {Array.from(activeMemberIds)
                 .map((id) => memberMap.get(id) ?? id)

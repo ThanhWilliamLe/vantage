@@ -6,7 +6,7 @@ export type { EvaluationEntry, AIInsight } from './types/evaluation.js';
 export type { GitCredential, AIProvider } from './types/credential.js';
 export type { AppConfig, ScanState, SyncState } from './types/config.js';
 export type { SearchResults, SearchHit, CodeChangeSearchResult, EvaluationSearchResult } from './types/search.js';
-export type { BatchResult, ErrorResponse, PaginatedResponse, AIQueueStatus, SyncFilters, ScanBatchResult, SyncBatchResult, CombinedSyncResult } from './types/api.js';
+export type { BatchResult, ErrorResponse, PaginatedResponse, AIActiveItem, AIQueueStatus, SyncFilters, ScanBatchResult, SyncBatchResult, CombinedSyncResult } from './types/api.js';
 export type {
   BarChartEntry, TrendChartEntry,
   HeatmapMember, HeatmapProject, HeatmapCell,

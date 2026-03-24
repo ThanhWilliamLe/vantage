@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import * as schema from '../data/schema.js';
-import { NotFoundError } from '../errors/index.js';
+import { NotFoundError, ValidationError } from '../errors/index.js';
 import { GitReader } from '../integrations/git/git-reader.js';
 import { TaskPatternService } from '../services/task-pattern-service.js';
 
@@ -28,6 +28,40 @@ export async function codeChangeRoutes(app: FastifyInstance) {
 
     return { total: allChanges.length, resolved: updated };
   });
+  // GET /api/code-changes/unmapped-authors?platform=email — distinct unmapped author identities
+  app.get('/api/code-changes/unmapped-authors', async (request) => {
+    const { platform } = request.query as { platform?: string };
+
+    let query: string;
+    if (platform === 'email') {
+      // Return distinct author emails (authorRaw contains @) that are not mapped to any member
+      query = `
+        SELECT author_raw AS value, COUNT(*) AS commit_count
+        FROM code_change
+        WHERE author_member_id IS NULL AND author_raw LIKE '%@%'
+        GROUP BY author_raw
+        ORDER BY commit_count DESC
+        LIMIT 100
+      `;
+    } else {
+      // Return distinct authorRaw values not mapped
+      query = `
+        SELECT author_raw AS value, COUNT(*) AS commit_count
+        FROM code_change
+        WHERE author_member_id IS NULL
+        GROUP BY author_raw
+        ORDER BY commit_count DESC
+        LIMIT 100
+      `;
+    }
+
+    const rows = app.db.$client.prepare(query).all() as Array<{
+      value: string;
+      commit_count: number;
+    }>;
+    return rows.map((r) => ({ value: r.value, commitCount: r.commit_count }));
+  });
+
   // GET /api/code-changes — list with filters
   app.get('/api/code-changes', async (request) => {
     const query = request.query as {
@@ -56,9 +90,7 @@ export async function codeChangeRoutes(app: FastifyInstance) {
       conditions.push(eq(schema.codeChange.aiRiskLevel, query.riskLevel));
     }
 
-    const whereClause = conditions.length > 0
-      ? and(...conditions)
-      : undefined;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const items = await app.db
       .select()
@@ -138,5 +170,73 @@ export async function codeChangeRoutes(app: FastifyInstance) {
 
     const result = await GitReader.getDiffForAPI(repo.localPath, change.platformId);
     return result;
+  });
+
+  // GET /api/code-changes/aggregate-diff?ids=id1,id2,id3
+  app.get('/api/code-changes/aggregate-diff', async (request) => {
+    const { ids: idsParam } = request.query as { ids?: string };
+    if (!idsParam) {
+      throw new ValidationError('ids query parameter is required');
+    }
+
+    const ids = idsParam.split(',').filter(Boolean);
+    if (ids.length === 0) {
+      throw new ValidationError('At least one ID is required');
+    }
+    if (ids.length > 50) {
+      throw new ValidationError('Maximum 50 IDs allowed per aggregate diff request');
+    }
+
+    const diffs: string[] = [];
+    let truncated = false;
+    let totalSize = 0;
+    const MAX_SIZE = 500000;
+
+    for (const id of ids) {
+      if (totalSize >= MAX_SIZE) {
+        truncated = true;
+        break;
+      }
+
+      const change = await app.db
+        .select()
+        .from(schema.codeChange)
+        .where(eq(schema.codeChange.id, id))
+        .get();
+
+      if (!change) continue;
+
+      // Validate platformId is a safe git ref (hex hash)
+      if (!/^[0-9a-f]{7,40}$/i.test(change.platformId)) continue;
+
+      const repo = await app.db
+        .select()
+        .from(schema.repository)
+        .where(eq(schema.repository.id, change.repoId))
+        .get();
+
+      if (!repo?.localPath) continue;
+
+      try {
+        const { default: simpleGit } = await import('simple-git');
+        const git = simpleGit(repo.localPath);
+        const diff = await git.diff([`${change.platformId}^..${change.platformId}`]);
+        if (diff) {
+          const entry = `# Commit: ${change.title}\n# Author: ${change.authorName || change.authorRaw}\n${diff}`;
+          diffs.push(entry);
+          totalSize += entry.length;
+        }
+      } catch {
+        // Skip commits with diff errors
+      }
+    }
+
+    const combined = diffs.join('\n');
+
+    return {
+      diff: truncated ? combined.substring(0, MAX_SIZE) : combined,
+      truncated,
+      commitCount: ids.length,
+    };
   });
 }

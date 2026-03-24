@@ -316,6 +316,82 @@ export const ReviewService = {
     return results;
   },
 
+  async aggregateReview(db: DrizzleDB, ids: string[], notes?: string) {
+    if (!ids || ids.length === 0) {
+      throw new ValidationError('At least one ID is required', { field: 'ids' });
+    }
+
+    // Validate all items exist and are pending
+    const changes: Array<typeof schema.codeChange.$inferSelect> = [];
+    for (const id of ids) {
+      const change = await db
+        .select()
+        .from(schema.codeChange)
+        .where(eq(schema.codeChange.id, id))
+        .get();
+      if (!change) throw new NotFoundError('CodeChange', id);
+      if (change.status !== 'pending') {
+        throw new ValidationError(
+          `Cannot aggregate-review item '${id}' with status '${change.status}'; only pending items`,
+          { field: 'status', expected: 'pending', received: change.status },
+        );
+      }
+      changes.push(change);
+    }
+
+    const now = new Date().toISOString();
+    const aggregateNotes = notes
+      ? `[Aggregated review of ${ids.length} commits] ${notes}`
+      : `[Aggregated review of ${ids.length} commits]`;
+
+    // Mark all as reviewed in a transaction
+    const transaction = db.$client.transaction(() => {
+      for (const change of changes) {
+        db.$client
+          .prepare(
+            'UPDATE code_change SET status = ?, reviewed_at = ?, review_notes = ?, updated_at = ? WHERE id = ?',
+          )
+          .run('reviewed', now, aggregateNotes, now, change.id);
+      }
+    });
+    transaction();
+
+    return {
+      reviewedCount: changes.length,
+      reviewedIds: ids,
+      notes: aggregateNotes,
+      reviewedAt: now,
+    };
+  },
+
+  async clearReview(db: DrizzleDB, id: string) {
+    const change = await getCodeChangeOrThrow(db, id);
+    if (
+      change.status !== 'reviewed' &&
+      change.status !== 'flagged' &&
+      change.status !== 'communicated' &&
+      change.status !== 'resolved'
+    ) {
+      throw new ValidationError('Can only clear review on non-pending items', { field: 'status' });
+    }
+
+    const now = new Date().toISOString();
+    const updates = {
+      status: 'pending',
+      reviewedAt: null,
+      flaggedAt: null,
+      flagReason: null,
+      communicatedAt: null,
+      resolvedAt: null,
+      deferredAt: null,
+      updatedAt: now,
+      // Keep reviewNotes as draft
+    };
+
+    await db.update(schema.codeChange).set(updates).where(eq(schema.codeChange.id, id));
+    return { ...change, ...updates };
+  },
+
   async getHistory(db: DrizzleDB, filters?: HistoryFilters) {
     const limit = Math.min(filters?.limit || 50, 200);
     const offset = filters?.offset || 0;

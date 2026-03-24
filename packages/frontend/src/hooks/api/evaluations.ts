@@ -18,13 +18,11 @@ export function useEvaluations(filters?: Record<string, string>) {
   });
 }
 
-export function useDailyPrefill(date: string, memberId: string) {
+export function useDailyPrefill(startDate: string, endDate: string, memberId: string) {
+  const params = new URLSearchParams({ startDate, endDate, memberId }).toString();
   return useQuery({
-    queryKey: ['daily-prefill', date, memberId] as const,
-    queryFn: () =>
-      apiClient.get<DailyPrefillResponse>(
-        `/api/evaluations/daily-prefill?date=${encodeURIComponent(date)}&memberId=${encodeURIComponent(memberId)}`,
-      ),
+    queryKey: ['daily-prefill', startDate, endDate, memberId] as const,
+    queryFn: () => apiClient.get<DailyPrefillResponse>(`/api/evaluations/daily-prefill?${params}`),
     enabled: false, // Only fetch on demand via refetch()
   });
 }
@@ -49,6 +47,7 @@ export function useCreateEvaluation() {
       type: string;
       memberId: string;
       date?: string;
+      dateRangeStart?: string;
       quarter?: string;
       projectIds: string[];
       description?: string;

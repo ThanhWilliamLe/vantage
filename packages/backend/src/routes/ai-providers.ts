@@ -65,4 +65,10 @@ export async function aiProviderRoutes(app: FastifyInstance) {
     await AIProviderService.delete(app.db, id);
     return reply.status(204).send();
   });
+
+  app.post('/api/ai-providers/:id/test', async (request) => {
+    const { id } = request.params as { id: string };
+    const result = await AIProviderService.testProvider(app.db, app.encryptionKey, id);
+    return result;
+  });
 }

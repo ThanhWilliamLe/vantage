@@ -41,8 +41,16 @@ export async function evaluationRoutes(app: FastifyInstance) {
   // GET /api/evaluations/daily-prefill — AI pre-fill for daily check-ups
   // Must be registered before the parameterized :id route
   app.get('/api/evaluations/daily-prefill', async (request) => {
-    const query = request.query as { date?: string; memberId?: string };
-    if (!query.date || !query.memberId) {
+    const query = request.query as {
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+      memberId?: string;
+    };
+    // Support both startDate/endDate (range) and legacy date (single day)
+    const rangeStart = query.startDate || query.date;
+    const rangeEnd = query.endDate || query.date;
+    if (!rangeStart || !rangeEnd || !query.memberId) {
       return { description: '', workloadScore: null };
     }
 
@@ -51,9 +59,9 @@ export async function evaluationRoutes(app: FastifyInstance) {
       return { description: '', workloadScore: null };
     }
 
-    // Get today's code changes for this member
-    const dayStart = `${query.date}T00:00:00.000Z`;
-    const dayEnd = `${query.date}T23:59:59.999Z`;
+    // Get code changes for this member in the date range
+    const dayStart = `${rangeStart}T00:00:00.000Z`;
+    const dayEnd = `${rangeEnd}T23:59:59.999Z`;
     const changes = await app.db
       .select({
         title: schema.codeChange.title,
@@ -172,6 +180,7 @@ export async function evaluationRoutes(app: FastifyInstance) {
       type: string;
       memberId: string;
       date?: string;
+      dateRangeStart?: string;
       quarter?: string;
       projectIds: string[];
       description?: string;
@@ -197,6 +206,7 @@ export async function evaluationRoutes(app: FastifyInstance) {
     const result = await EvaluationService.createDaily(app.db, {
       memberId: body.memberId,
       date: body.date!,
+      dateRangeStart: body.dateRangeStart,
       projectIds: body.projectIds,
       description: body.description,
       workloadScore: body.workloadScore,

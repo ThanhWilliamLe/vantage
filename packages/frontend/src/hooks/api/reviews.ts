@@ -113,6 +113,123 @@ export function useRequestDeepAnalysis() {
   });
 }
 
+export function useGenerateTier1() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ codeChangeId }: { codeChangeId: string }) =>
+      apiClient.post('/api/ai/tier1', { codeChangeId }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: queryKeys.codeChange(variables.codeChangeId) });
+    },
+  });
+}
+
+export function useGenerateReviewNotes() {
+  return useMutation({
+    mutationFn: ({ codeChangeId }: { codeChangeId: string }) =>
+      apiClient.post<{ notes: string }>('/api/ai/generate-review-notes', { codeChangeId }),
+  });
+}
+
+export function useAggregateDiff(ids: string[]) {
+  const idsParam = ids.join(',');
+  return useQuery({
+    queryKey: ['aggregate-diff', idsParam] as const,
+    queryFn: () =>
+      apiClient.get<{ diff: string; truncated: boolean; commitCount: number }>(
+        `/api/code-changes/aggregate-diff?ids=${idsParam}`,
+      ),
+    enabled: ids.length > 1,
+  });
+}
+
+export function useAggregateReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { ids: string[]; notes?: string }) =>
+      apiClient.post('/api/code-changes/aggregate-review', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
+    },
+  });
+}
+
+export function useClearReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/api/code-changes/${id}/clear-review`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+      qc.invalidateQueries({ queryKey: ['history'] as const });
+    },
+  });
+}
+
+export function useClearDeepAnalysis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (codeChangeId: string) =>
+      apiClient.del(`/api/code-changes/${codeChangeId}/deep-analysis`),
+    onSuccess: (_data, codeChangeId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.deepAnalysis(codeChangeId) });
+    },
+  });
+}
+
+/** Process items in chunks of N to avoid overwhelming the server */
+async function chunked<T>(
+  ids: string[],
+  fn: (id: string) => Promise<T>,
+  concurrency = 3,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = [];
+  for (let i = 0; i < ids.length; i += concurrency) {
+    const chunk = ids.slice(i, i + concurrency);
+    const settled = await Promise.allSettled(chunk.map(fn));
+    results.push(...settled);
+  }
+  return results;
+}
+
+export function useBatchDeepAnalysis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      chunked(ids, (cid) => apiClient.post('/api/ai/deep-analysis', { codeChangeId: cid })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deep-analysis'] });
+    },
+  });
+}
+
+export function useBatchClearAnalysis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      chunked(ids, (cid) => apiClient.del(`/api/code-changes/${cid}/deep-analysis`)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deep-analysis'] });
+    },
+  });
+}
+
+export function useBatchSummarize() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      chunked(ids, (cid) => apiClient.post('/api/ai/tier1', { codeChangeId: cid })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-queue'] as const });
+      qc.invalidateQueries({ queryKey: ['code-changes'] as const });
+    },
+  });
+}
+
 export function useRecentChangesByProject(projectId: string, enabled: boolean) {
   const params = new URLSearchParams({ projectId, limit: '10' }).toString();
   return useQuery({

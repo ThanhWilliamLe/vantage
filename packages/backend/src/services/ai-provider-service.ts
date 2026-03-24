@@ -171,12 +171,67 @@ export const AIProviderService = {
 
     await db.delete(schema.aiProvider).where(eq(schema.aiProvider.id, id));
   },
+
+  async testProvider(
+    db: DrizzleDB,
+    key: Buffer,
+    id: string,
+  ): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+    const provider = await db
+      .select()
+      .from(schema.aiProvider)
+      .where(eq(schema.aiProvider.id, id))
+      .get();
+
+    if (!provider) {
+      throw new NotFoundError('AIProvider', id);
+    }
+
+    const start = Date.now();
+
+    try {
+      if (provider.type === 'api') {
+        if (!provider.endpointUrl || !provider.apiKeyEncrypted || !provider.model) {
+          return {
+            success: false,
+            message: 'API provider is missing configuration (URL, key, or model)',
+          };
+        }
+        const { APIProvider } = await import('../integrations/ai/api-provider.js');
+        const apiKey = decrypt(provider.apiKeyEncrypted, key);
+        const apiProv = new APIProvider({
+          endpointUrl: provider.endpointUrl,
+          apiKey,
+          model: provider.model,
+          preset: (provider.preset as 'openai' | 'anthropic') || 'openai',
+        });
+        await apiProv.generate('Respond with OK');
+        const latencyMs = Date.now() - start;
+        return { success: true, message: `Connected successfully (${latencyMs}ms)`, latencyMs };
+      }
+
+      if (provider.type === 'cli') {
+        if (!provider.cliCommand) {
+          return { success: false, message: 'CLI provider is missing command' };
+        }
+        const { CLIProvider } = await import('../integrations/ai/cli-provider.js');
+        const args = provider.cliIoMethod === 'stdin' ? ['-p'] : [];
+        const cliProv = new CLIProvider({ command: provider.cliCommand, args });
+        await cliProv.generate('Respond with OK');
+        const latencyMs = Date.now() - start;
+        return { success: true, message: `Connected successfully (${latencyMs}ms)`, latencyMs };
+      }
+
+      return { success: false, message: `Unknown provider type: ${provider.type}` };
+    } catch (err) {
+      const latencyMs = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: `Test failed: ${msg}`, latencyMs };
+    }
+  },
 };
 
-function formatProvider(
-  row: typeof schema.aiProvider.$inferSelect,
-  key: Buffer,
-) {
+function formatProvider(row: typeof schema.aiProvider.$inferSelect, key: Buffer) {
   return {
     id: row.id,
     name: row.name,

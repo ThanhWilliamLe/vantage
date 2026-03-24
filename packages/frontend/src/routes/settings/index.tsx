@@ -12,6 +12,7 @@ import {
   useUpdateAIProvider,
   useActivateAIProvider,
   useDeleteAIProvider,
+  useTestAIProvider,
   useSetPassword,
   useRemovePassword,
   useDeleteAllData,
@@ -289,6 +290,8 @@ function AIProviderSection() {
   const updateProvider = useUpdateAIProvider();
   const activateProvider = useActivateAIProvider();
   const deleteProvider = useDeleteAIProvider();
+  const testProvider = useTestAIProvider();
+  const [testResult, setTestResult] = useState<Record<string, string>>({});
   const [provName, setProvName] = useState('');
   const [provType, setProvType] = useState('api');
   const [preset, setPreset] = useState('openai');
@@ -438,6 +441,29 @@ function AIProviderSection() {
                   )}
                   <button
                     onClick={() => {
+                      setTestResult((prev) => ({ ...prev, [prov.id]: 'Testing...' }));
+                      testProvider.mutate(prov.id, {
+                        onSuccess: (data) => {
+                          setTestResult((prev) => ({
+                            ...prev,
+                            [prov.id]: data.success ? `Passed (${data.latencyMs}ms)` : data.message,
+                          }));
+                        },
+                        onError: (err) => {
+                          setTestResult((prev) => ({
+                            ...prev,
+                            [prov.id]: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+                          }));
+                        },
+                      });
+                    }}
+                    disabled={testProvider.isPending}
+                    className="text-xs text-accent-text hover:text-accent-hover disabled:opacity-50"
+                  >
+                    Test
+                  </button>
+                  <button
+                    onClick={() => {
                       setEditingProvId(editingProvId === prov.id ? null : prov.id);
                       setEditProvName(prov.name);
                       setEditEndpointUrl(prov.endpointUrl ?? '');
@@ -461,6 +487,13 @@ function AIProviderSection() {
                   </button>
                 </div>
               </div>
+              {testResult[prov.id] && (
+                <div
+                  className={`px-4 pb-2 text-xs ${testResult[prov.id].startsWith('Passed') ? 'text-success' : 'text-danger'}`}
+                >
+                  {testResult[prov.id]}
+                </div>
+              )}
               {editingProvId === prov.id && (
                 <div className="border-t border-border px-4 py-3">
                   <div className="space-y-2 max-w-md">

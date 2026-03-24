@@ -42,4 +42,32 @@ export async function identitySuggestionRoutes(app: FastifyInstance) {
     // Return updated suggestions
     return IdentityGuessService.getSuggestions(app.db);
   });
+
+  app.post('/api/members/identity-suggestions/reject', async (request) => {
+    const { authorRaw, suggestedMemberId } = request.body as {
+      authorRaw: string;
+      suggestedMemberId: string;
+    };
+
+    if (!authorRaw || !suggestedMemberId) {
+      throw new ValidationError('authorRaw and suggestedMemberId are required');
+    }
+
+    const { ulid } = await import('ulid');
+    const now = new Date().toISOString();
+
+    // Insert dismissal (ignore if already exists)
+    await app.db
+      .insert(schema.identitySuggestionDismissal)
+      .values({
+        id: ulid(),
+        authorRaw,
+        suggestedMemberId,
+        dismissedAt: now,
+      })
+      .onConflictDoNothing();
+
+    // Return updated suggestions
+    return IdentityGuessService.getSuggestions(app.db);
+  });
 }

@@ -14,11 +14,20 @@ export interface AIQueueItem {
   lastError?: string;
 }
 
+export interface AIActiveItem {
+  codeChangeId: string;
+  providerName: string;
+  providerType: string;
+  repoPath: string;
+  startedAt: string;
+}
+
 export interface AIQueueStatus {
   total: number;
   completed: number;
   failed: number;
   processing: boolean;
+  activeItems?: AIActiveItem[];
 }
 
 type ProcessFn = (codeChangeId: string) => Promise<void>;
